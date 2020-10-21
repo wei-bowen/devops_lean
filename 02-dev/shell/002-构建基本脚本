@@ -1,0 +1,52 @@
+1、使用多个命令
+[root@hostname ~]# 命令1 ； 命令2
+[root@hostname ~]# 命令1 && 命令2
+
+2、执行脚本
+[root@hostname ~]# bash  脚本路径/名称                                         ##绝对/相对路径均可，前面指定使用的shell
+[root@hostname ~]# ./脚本名称                                                  ##当前路径执行脚本，需要再脚本首行指定shell类型。例如：   #！/bin/bash
+[root@hostname ~]# 绝对路径/脚本名称                                            ##绝对路径执行脚本，需要再脚本首行指定shell类型。例如：   #！/bin/bash
+[root@hostname ~]# 脚本名称                                                     ##系统在PATH变量给出的路径中搜寻脚本并执行，必须拥有x可执行权限
+
+3、显示消息
+[root@hostname ~]# echo "信息。。。"
+[root@hostname ~]# echo -n "信息。。。"                                		##消息显示后不自动换行
+
+4、获取命令返回值赋给变量                                                  	  ##注意：命令中会创建一个子shell来执行，无法使用脚本中其他位置定义的变量
+[root@hostname ~]# 变量=`命令`                  						     ##使用反引号
+[root@hostname ~]# 变量=$(命令)                                   			 ##使用$()格式，不能带空格
+
+5、重定向
+[root@hostname ~]# 命令 > 输出文件                             			   ##将命令执行结果覆盖写入指定的输出文件
+[root@hostname ~]# 命令 >> 输出文件                        				   ##将命令追加写入输出文件
+[root@hostname ~]# 命令 < 输入文件                           				   ##将文件内容输入给命令去执行
+[root@hostname ~]# cat << EOF
+>HI
+>这是追加输入
+>即多行输入，指定的起止符为EOF
+>EOF
+[root@hostname ~]# cat<输入文件<<EOF
+>HI
+>这依然是追加输入
+>先将多行内容追加输入到指定文件
+>再将文件内容输入给cat命令执行
+>EOF
+
+6、管道
+[root@hostname ~]# 命令1 | 命令2 | 命令3                   				       ##可以多次使用管道| 将命令的输出结果输入给后面的命令
+
+7、执行数学运算
+[root@hostname ~]# 变量=$[数学表达式]                ##例如var1=$[1 + 2]   	     ##加不加空格都没区别。仅支持整数运算
+[root@hostname ~]# 变量=$(echo "bc变量1=val1,bc变量2=val2; 数学表达式" | bc)      ##浮点运算.可以指定结果小数点，scale=4代表输出4位小数点
+[root@hostname ~]# result=$(bc << EOF             					             ##使用重定向完成多行计算
+>var1=5 / 2
+>var2=4*3
+>var3=6-1
+>va1/(var2*var3)
+>EOF 
+
+8、退出状态码
+[root@hostname ~]# echo $?                                           		    ##打印上一条命令的退出码，默认成功时退出码为0，失败则是一个正整数
+[root@hostname ~]# cat test.sh
+…
+exit 5      

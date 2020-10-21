@@ -1,0 +1,38 @@
+ansible role相关
+
+1、使用ansible-galaxy初始化一个role
+    ansible-galaxy init /etc/ansible/roles/webserver
+    
+2、安装别人写好的roles
+    ansible-galaxy install -p /etc/ansible/roles/ bennojoy.mysql
+    
+3、列出已安装的role
+    ansible-galaxy list
+    
+4、查看role详细信息
+    ansible-galaxy info bennojoy.mysql
+    
+5、卸载roles
+    ansible-galaxy remove bennojoy.mysql
+    
+6、roles目录结构
+/etc/ansible/roles/webserver/
+|-- README.md
+|-- defaults                    
+|   `-- main.yml                ##可以被覆盖的默认变量
+|-- files                       ##需要上传到远程服务器的文件
+|-- handlers                    ##存放执行完毕后的handlers
+|   `-- main.yml
+|-- meta                        ##存放role的依赖信息
+|   `-- main.yml
+|-- tasks                       ##所有任务列表
+|   `-- main.yml
+|-- templates                   ##jinja2模板
+|-- tests
+|   |-- inventory
+|   `-- test.yml
+|-- vars                        ##所有主动配置的变量
+|   `-- main.yml
+`--main.yml                     ##主执行文件，通过此文件去调用其他文件
+   
+

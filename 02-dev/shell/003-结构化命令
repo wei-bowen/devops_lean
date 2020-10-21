@@ -1,0 +1,137 @@
+1、if-then语句. 当if后面的命令的状态返回码为0时执行then后面的命令集
+if command
+then 
+	commands
+fi
+
+2、if-then-else语句
+if command
+then 
+	commands
+else
+	commands 
+fi
+
+3、if-elif语句,可以按需配置多个elif
+if command
+then 
+	commands 
+elif command 
+then
+	commands 
+elif command 
+then 
+	commands
+fi
+
+4、test命令。 test 条件表达式         ##如果条件表达式成立，则test命令执行成功返回状态码0，否则返回正整数表失败。可用于if判断
+if test 条件表达式
+then
+	commands
+fi
+
+4.1 检验变量是否为空
+if test $var1
+then
+	echo "var1 is not null"
+else 
+	echo "var1 is null"
+fi 
+
+4.2 test可以简写为 [ 条件表达式 ]   ##[]跟表达式之间必须带空格
+if [ $var1=="value1" ]
+then
+	echo "var1 is value1"
+else 
+	echo "var1 is not value1"
+fi 
+
+4.3 test支持数值比较/字符串比较/文件比较
+4.3.1 数值比较：  -eq等于 -nq不等于 -ge大于等于 -gt大于 -le小于等于 -lt小于 
+if [ $var -eq 1 ]
+then
+	echo "var 的值等于1"
+fi
+4.3.2 字符串比较： =相同  !=不同 <小于 >大于 -n长度非0 -z长度为0   ##大于小于比较的是ASCII数值
+if [ -n $str ]
+then 
+	echo "str变量长度不为0"
+elif [ -z $str ]
+then
+	echo "str变量为空，长度=0"
+fi 
+4.3.3 文件比较：-d是否目录 -e是否存在 -f是否为文件 -r是否可读 -s是否非空 -o是否当前用户所有 -G是否当前组所有 file1 -nt file2是否
+4.3.4 复合条件测试：  [ 条件表达式1 ] && [ 条件表达式2 ]        [ 条件表达式1 ] || [ 条件表达式2 ]
+
+4.4、if-then高级特性1(双括号)：  (( 高级数学表达式 ))
+if (( var ** 2 > 90 ))											##var的平方是否大于90
+then
+	commands
+fi
+4.5、if-then高级特性2(双方括号)： [[ 模式匹配表达式 ]]
+if [[ $var == r* ]]
+then 
+	echo "var是以r开头的词"
+	
+5、case命令.执行第一个匹配
+case var in
+value1 | value2)
+	commands
+value3)
+	commands
+*)
+	commands
+	
+6、for循环
+for var in list
+do
+	commands
+done
+##例如列出当前目录下所有文件
+for file in `ls`
+do
+	if [ -f $file ]
+	then
+		echo $file
+	fi
+done
+##默认情况下，命令返回结果按空白符(包括制表符、空格、换行符)分隔成多个变量。也可以指定分隔符。例如指定仅以换行符作为分隔符
+IFS=$'\n'
+for str in `cat /etc/passwd`			##逐行返回
+do
+	echo $str
+done
+
+##使用通配符.例如打印/home目录下以r开头的文件/目录
+for file in /home/r*
+do 
+	echo $file
+done
+
+##C语言风格的for循环
+for (( 变量初始化; 条件表达式; 变量变化表达式)			##条件表达式的变量不以$开头，变量迭代变化表达式无需使用expr，可以同时使用多个变量
+do
+	commands
+done
+
+7、while循环
+while [ 条件表达式 ]
+do
+	commands
+done
+##或者command1和command2至少被执行一次，返回状态码不为0则不执行commands
+while command1
+	command2
+do
+	commands
+done
+
+8、until循环，与while相反，返回值不为0时才执行
+until command
+do
+	commands
+done
+
+9、控制循环：break跳出当前循环，可以break n指定数字跳出多层循环 continue直接进入下一个循环
+
+10、处理循坏的输出：done > outputfile即可

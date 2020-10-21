@@ -1,0 +1,32 @@
+1、查看全局环境变量
+[root@hostname ~]# printenv
+[root@hostname ~]# env
+
+2、查看特定变量值
+[root@hostname ~]# printenv $home         
+[root@hostname ~]# echo $变量名              
+
+3、查看全部变量(用户局部+全局变量)
+[root@hostname ~]# set
+
+4、变量赋值
+[root@hostname ~]# 变量名=值                                       #(中间不带空格)
+
+5、变量引用
+[root@hostname ~]# $变量名
+
+6、设置全局变量
+[root@hostname ~]# export 变量名=值                                #(子shell中修改全局变量仅局部有效，不会影响全局)
+
+7、删除环境变量
+[root@hostname ~]# unset 变量名
+
+8、常用环境变量PATH、用于命令和程序的查找.冒号隔开多个绝对路径
+[root@hostname ~]# echo $PATH
+
+9、数组变量
+[root@hostname ~]# array_var=(value1 value2 value3)			       #数组变量赋值,空格分开
+[root@hostname ~]# echo $(array_var[*])					           #打印全部数组
+[root@hostname ~]# echo $(array_var[0])					           #打印第一个变量
+[root@hostname ~]# unset array_var						           #删除数组变量
+[root@hostname ~]# unset array_var[1]					           #删除第二个数组变量,该位置置为空，其他变量位置不变

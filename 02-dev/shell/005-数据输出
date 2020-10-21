@@ -1,0 +1,95 @@
+#1、再探重定向
+## 文件描述符 0标准输入 1标准输出 2错误
+### 错误重定向
+[root@hostname ~]# err_command 2 > output_file
+### 标准输出+错误分别重定向
+[root@hostname ~]# err_command 1 > output_file 2 > err_log
+### 标准输出+错误统一输出
+[root@hostname ~]# err_command & > output_file
+
+#2、脚本中重定向输出
+## 临时重定向
+### 将标准输出重定向到STDERR
+[root@hostname ~]# cat out_to_err.sh
+#!/bin/bash
+echo "This is a normoal output" >&2						## &是文件描述符的指代
+[root@hostname ~]# bash out_to_err.sh > output_file		## 此时由于标准输出已经被重定向为错误，output_file将无内容
+[root@hostname ~]# bash out_to_err.sh 2> err_log		## 标准输出被重定向为STDERR并输出到err_log
+
+## 永久重定向
+[root@hostname ~]# cat exec_out_err.sh
+#!/bin/bash
+
+exec 2>err.txt
+echo "This is a normal output"							## 由于未指定标准输出重定向到哪，这一句默认打印在屏幕上
+
+exec 1>out.txt
+echo "This is a normal output messages too"				## 标准输出被指定重定向到out.txt
+echo "This normal output will write to err_log" >&2		## 标准输出指定转为STDERR然后被指定重定向到err.txt
+
+## 输入重定向
+#！/bin/bash
+exec 0<input.txt
+
+count=1
+while read line											## 从输入重定向中读取
+do
+	echo "Line $count : $line"
+	$count=$[ $count + 1 ]
+done
+
+
+#3、创建自己的重定向(使用3~8描述符)
+#!/bin/bash
+exec 3>test3.out										##创建自定义输出描述符3，并指定重定向到test3.out
+echo "This is a normal output to test3.out" >&3
+
+##恢复重定向
+exec 3>&1												#a、此时3被重定向到1的位置，即默认的屏幕显示
+exec 1>out.txt											#b、1被重定向到指定文件，但是不会连带3也指向文件，3保持原来的方向仍然指向屏幕
+exec 1>&3												#c、1被指定到3当前的重定向位置，即屏幕。完成重定向恢复。思路即3先把老坑占了，便于后面恢复1
+
+#标准输入原理一样
+exec 6<&0												#a、用6号文件描述符把默认的来自键盘的标准输入的坑占了
+exec 0<input.txt										#b、标准输入被调整为只接收来自input.txt的输出
+read -p "提示:" var										#此时键盘输入，将无法被捕获
+exec 0<&6												#6把键盘输入的坑给到0，0恢复
+read -p "提示：" var 									#此时能正常获取来自键盘的标准输入
+
+##创建读写文件描述符
+
+##关闭文件描述符,重定向到特殊文件描述符&-即可关闭
+exec 3>&-
+
+
+#4、查看打开的描述符
+/usr/sbin/lsof  -a -p $pid -d 0,1,2						# -a显示详细信息 -p指定要查看的进程pid -d指定要查看的文件描述符
+[root@hostname ~]# /usr/sbin/lsof  -a -p $$ -d 0,1,2	# $$代表当前进程
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+bash    29940 root    0u   CHR  136,1      0t0    4 /dev/pts/1
+bash    29940 root    1u   CHR  136,1      0t0    4 /dev/pts/1
+bash    29940 root    2u   CHR  136,1      0t0    4 /dev/pts/1
+##COMMAND正在运行命令的前9位  FD显示描述符及访问类型(r读w写u读写) 
+
+
+#5、丢弃数据，将其重定向到 /dev/null即可
+
+#6、创建临时文件
+mktemp testing.XXXXXX									#指定临时文件已testing开头，系统会自动用6个字符替换后面的X，确保不会重复
+tempfile1=$(mktemp -t testing.XXXXXX)					#指定在系统临时目录/tmp下生成临时文件，并将文件名返回给变量temofile
+mktemp -d testdir.XXXXXX								#创建临时目录
+
+#7、使用tee命令同时输出到屏幕和文件中，用于记录消息
+command | tee -a out.log									#此时command执行过程不仅打印到屏幕，还会记录到out.log. -a是追加写入，不用则覆盖写入
+
+#5、示例：读取csv文件转换成sql用于插入数据库
+#!/bin/bash
+outfile='insert.sql'
+IFS=','
+while read num name age address
+do
+	cat >> outfile << EOF
+	INSERT INTO MEMBERS (num,name,age,address) VALUES ('$num','$name','$age','$address');
+EOF
+done < ${1}
+## $1代表了要读取数据的文件

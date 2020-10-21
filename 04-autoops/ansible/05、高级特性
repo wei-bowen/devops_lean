@@ -1,0 +1,24 @@
+ansible的一切其他高级用法
+
+1、线性更新serial
+- name: test play
+  hosts: webserver
+  serial:
+  - 1
+  - 5
+  - 10
+  - "30%"                       ##先更新1台服务器，没问题再5再10再百分之三十
+  
+2、单独委派执行delegate
+- name: test play
+  hosts: webserver
+  tasks:
+  - name : yum install
+    yum: name=httpd state=present
+    delegate_to: 172.17.0.9     ##此任务仅再webserver列表中IP为9的机器上执行
+    
+3、本地执行local_action
+- name: local install
+  local_action: yum name=mysql state=present
+    
+4、只运行一次run_once

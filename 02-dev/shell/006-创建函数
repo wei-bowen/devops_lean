@@ -1,0 +1,70 @@
+1、创建和使用函数
+[root@hostname ~]# cat function_test.sh
+#!/bin/bash
+function func_name() {
+	commands
+}
+
+func_name									## 使用函数名直接调用函数
+
+2、返回值
+# $? 可以获取函数中最后一条命令的执行返回码，默认情况下成功的返回码为0
+# 可以在函数中使用 return 指定返回码(限定0~255). 函数一结束就取返回码，否则函数返回码会被其他命令的返回码替换
+# 需要返回大于255的数值或者非正整数时使用echo返回.注意，所有echo都会记录到返回
+
+3、在函数中使用变量。参数放在函数同一行即可传入。注意，必须指定传入，不能直接获取脚本接收的参数
+[root@hostname ~]# cat func_var_test.sh
+#!/bin/bash
+function add() {
+	echo $[ $1 + $2 ]
+}
+
+result=$(add 5 10)
+echo $result
+
+# 变量默认的作用域是全局的，会比较危险，在函数内使用local关键字定义局部变量
+function func_name() {
+	local var="local var"
+}
+
+4、数组变量和函数。
+#数组变量直接作为参数传递给函数的话，函数只会取数组变量的第一个值。所以要将数组变量分解成单个值传递，然后在函数内重新组装
+#例如数组ar1=(1,2,3,4) 传递到函数中是1 3 4 5，赋给新数组时变成 ar2=1 2 3 4最终只有1有效，所以要改成ar2=($(echo ar1)) 的形式
+#!/bin/bash
+function test_array() {
+	local new_array=($(echo "$@"))
+	echo "The new"
+}
+my_array=(1 2 3 4)
+test_array ${my_array[*]}
+
+## 同样的，从函数中返回数组，也要重新组装
+#!/bin/bash
+function array_return() {
+	local my_array=(1 5 4 3 2)
+	echo ${my_array[*]}
+}
+
+out_array=($(array_return))
+echo ${out_array[*]}
+
+5、函数递归
+# 5!= 1 * 2 * 3 * 4 * 5  即  x! = ( x - 1)! * x
+[root@hostname ~]# cat function_factorial.sh
+#!/bin/bash
+function factorial() {
+	if [ $1 -eq 1 ]
+	then
+		echo 1
+	else
+		local temp=$[ $1 - 1 ]
+		local result='factorial $temp'
+		echo $[ $result * $1 ]
+	fi
+}
+
+6、创建库
+# 使用 source 库文件  命令，即可使用库文件中的内容
+
+7、命令行使用函数
+# 同样，命令行source 库文件后即可使用其中的函数

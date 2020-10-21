@@ -1,0 +1,89 @@
+1、传递参数
+## $0为脚本名称 $n为执行脚本时传入的参数,n>9时必须带花括号表示，否则会造成歧义.如${10}
+# $#为参数个数
+# 花括号中使用变量需使用!$  例如取最后一个参数 ${!$#}
+# $*将所有参数以一个单词的形式整体返回
+# $@返回参数列表，可以迭代遍历
+## 例如 
+[root@hostname ~]# cat var_test.sh
+#！/bin/bash
+echo "本脚本名称为:$0"
+echo "本次运行共获取$#个参数，第一个参数为$1,最后一个参数为${!#}"
+echo "\$*: $*"
+echo "逐个遍历\$*:"
+for var in $*
+do 
+	echo $var
+done
+echo "\$@: $@"
+echo "逐个遍历\$@:"
+for var in $@
+do 
+	echo $var
+done
+##执行脚本展示结果为：
+[root@hostname ~]# bash var_test.sh 2 two san "4 1"
+4
+本次运行共获取4个参数，第一个参数为2,最后一个参数为4 1
+$*: 2 two san 4 1
+逐个遍历$*:
+2 two san 4 1
+
+$@: 2 two san 4 1
+逐个遍历$@:
+2
+two
+san
+4 1
+
+2、移动变量。
+##shift直接删除$1，剩余所有参数左移，可以用于在不知道参数个数情况下遍历参数
+#!/bin/bash
+count=1
+while [ -n $1 ]
+do
+	echo "Parameter #$count = $1"
+	count=$[$count+1]
+	shift							##也可以在shift后面指定一个数字，例如shift 2 一次移动2个参数
+done
+
+3、处理选项
+#使用getopt命令
+#例如 ：
+getopts :ab:cd "$@"				    ## 第一个:是忽略错误(非必需), abcd是选项，其中b:代表后接参数。该命令会按照规则对传入参数进行解析 
+#简单脚本
+#!/bin/bash
+while getopts :ab:c opt 
+do
+    case "$opt" in
+        a)
+            echo "Found the -a option" ;;
+        b)
+            echo "Found the -b option , with value $OPTARG" ;;
+        c)
+            echo "Found the -c option" ;;
+        *)
+            echo "Unknown option: $opt" ;;
+    esac
+done
+shift $[ $OPTIND - 1 ]						##$OPTIND记录最后一个选项及其参数的位置。将其删除后，剩下的就都是参数了
+echo
+count=1
+for param in "$@"
+do
+    echo "Parameter $count : $param"
+    count=$[ $countt + 1 ]
+done
+#执行 bash getopts.sh -ab test1 -c
+[root@hostname ~]# bash getops.sh -ab test1 -c
+Found the -a option
+Found the -b option , with value test1
+Found the -c option
+
+4、获取用户输入
+read -p "提示:" var1 var2 					# -p选项加上提示信息，让用户输入,然后依次传入后面定义的变量，如果变量不够，则多余的全部给最后一个变量
+											  # 如果不指定变量则传给特殊变量给REPLY
+read -d eof var                               # 指定输入结束符为eof(其他也可以),而不是回车键											
+read -t 5 -p "提示" var 					# 设置五秒，超时则read返回一个非零状态码 
+read -n1 -p "Y/N" var 						# 指定接收一个字符后即完成输入，不必再摁回车
+read -s -p "提示：" var 					# 隐藏输入，输入内容不会显示在屏幕上

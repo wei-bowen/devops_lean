@@ -1,0 +1,48 @@
+sed编辑器处理过程
+	a)一次从输入中读取一行数据
+	b)根据所提供的编辑器命令匹配数据
+	c)按照命令修改流中的数据
+	d)将新的数据输出到STDOUT
+	
+命令格式：sed options script file
+options:
+	-e script	: 处理输入时将script中指定的命令添加到已有的命令中
+	-f file		: 处理输入时，将file中指定的命令添加到已有的命令中
+	-n			: 不产生命令输出,使用print命令来完成输出
+	
+1、替换单个词
+sed 's/oldstr/newstr/' data.txt
+
+2、使用-e选项执行多个命令,多个命令之间;分割
+sed -e 's/oldstr/newstr/; s/old/new/' data.txt
+
+3、使用-f读取文件中的命令
+[root@hostname ~]# cat replace.sed
+s/oldstr/newstr/							##一个命令一行
+s/old/new/
+[root@hostname ~]# sed -f replace.sed data.txt
+
+gawk编程语言
+	a)可以定义变量来保存数据
+	b)可以使用算术和字符串操作符来处理数据
+	c)可以使用结构化编程概念来为数据处理增加处理逻辑
+	d)可以通过提取数据文件中的数据元素，将其重新排列或格式化，生成格式化报告
+
+命令格式: gawk options '{program}' file
+options
+	-F fs			: 指定分隔符
+	-f file			: 从指定文件读取命令
+	-v var=value	: 设置变量
+	-mf N			：指定要处理的数据文件中最大字段数N
+	-mr N			: 指定数据文件中最大数据行数N
+	-W keyword		: 指定gawk的兼容模式或警告等级
+	
+1、基本使用
+gawk '{print "hello world"}'						##此时未指定数据文件，gawk需要从标准输入中读取。
+
+2、使用分隔符截取字段
+gawk -F":" '{print $1" "$2}' /etc/passwd			## -F指定分隔符:，不指定时默认使用空白分隔符，$n是代表按分隔符拆分后的第几个单词，其中$0代表整个文本行。多个字段之间如果要加空格也需要
+
+3、使用多个命令读取处理标准输入
+[root@hostname ~]# echo "My name is Rich" | gawk '{$4="poor";print $0}'		##多个命令使用;区分,也可以直接换行
+My name is poor																##默认按空白符分割，$4是Rich,被替换成了poor

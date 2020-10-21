@@ -1,0 +1,25 @@
+sed编辑器处理过程
+	a)一次从输入中读取一行数据
+	b)根据所提供的编辑器命令匹配数据
+	c)按照命令修改流中的数据
+	d)将新的数据输出到STDOUT
+	
+命令格式：sed options script file
+options:
+	-e script	: 处理输入时将script中指定的命令添加到已有的命令中
+	-f file		: 处理输入时，将file中指定的命令添加到已有的命令中
+	-n			: 不产生命令输出,使用print命令来完成输出
+	
+1、替换单个词
+sed 's/oldstr/newstr/' data.txt
+
+2、使用-e选项执行多个命令,多个命令之间;分割
+sed -e 's/oldstr/newstr/; s/old/new/' data.txt
+
+3、使用-f读取文件中的命令
+[root@hostname ~]# cat replace.sed
+s/oldstr/newstr/							##一个命令一行
+s/old/new/
+[root@hostname ~]# sed -f replace.sed data.txt
+
+4、
