@@ -1,58 +1,8 @@
 ## 通过Service将Pod端口暴露给外部访问
 暴露端口的方式可以是端口转发、service、ingress,其中service又分为ClusterIP/NodePort/LoadBalancer
 
-### 端口转发
-**原理**：类似iptables，将本机上的某一个端口的流量转发到一个指定的Pod的端口上(这个Pod可以是其他机器上的)。
-**实现**：`kubectl port-forward kubia 8888:80`
-**效果**：curl 本机IP:8888 时,流量自动跳转到kubia的80端口上
-
-### Service之ClusterIP
-**原理**：虚拟一个IP及端口(IP自动虚拟生成的不可ping，网段由kubeadm初始化集群时指定,监听端口自行指定。)，当有集群网络内的流量(外部网络将无法访问)指向该虚拟IP的端口时，将被转发到指定的POD端口上。
-![](https://github.com/wei-bowen/devops_lean/blob/main/images/ClusterIP.jpeg)
-**实现**：
-```shell
-kubectl expose pod fortune --name=fortune-http --port=80 --target-port=80 --session-affinity= ClientIP   
-```
-```yaml
-##yaml定义如下
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: fortune
-  name: fortune-http
-spec:
-  sessionAffinity= ClientIP   
-  ports:
-  - port: 80                            ##可以配置多个端口转发，每个端口一个- port
-    name: http                          ##非必填项，为该转发设置别名
-    protocol: TCP
-    targetPort: 80                      ##如果在Pod定义中对容器端口进行了命名，如Pod将80端口命名为http，此处可以填上端口名http
-  selector:
-    app: fortune
-```
-- expose暴露
-- -name 指定服务名称
-- --port=指定创建的服务监听的窗口
-- --target-port= 指定服务收到请求后，转发到资源的哪个窗口
-- --session-affinity:非必选项。指定将来自同一个IP的所有请求转发至同一个Pod上(多Pod应用时适用)
-**效果**：
-创建完成后执行 kubectl get svc -o wide 可以看到
-```
-NAME           TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE   SELECTOR
-fortune-http   ClusterIP   10.97.149.76   <none>        80/TCP    65s   app=fortune
-```
-- CLUSTER-IP: 给服务在集群网络中分配的虚拟网络IP，跟端口配合监听来自集群内的访问，其他资源访问telnet 10.97.149.76 80  可通
-- PORT(S)：第一个port跟CLUSTER-IP配合监听集群内部访问
-- SELECTOR：服务是与Pod通过标签选择器进行绑定的，所以要求Pod必须带有标签
-curl http://10.97.149.76：80 时，请求将被转发到后端带有app=fortune的pod的80端口上。
-
-### Service之NodePort
-**原理**：可以理解是clusterIP+端口转发。除了在集群网络内虚拟一个clusterIP以外，还会在pod所在的node机器上打开一个随机端口将监听到的流量转发到clusterIP上
-![](https://github.com/wei-bowen/devops_lean/blob/main/images/NodePort.jpeg)
-**实现**：
+### 实验准备。
 先创建一个kubia应用，配置3个Pod(同时对外服务，返回各自主机名，方便查看负载转发效果)
-
 ```yaml
 apiVersion: apps/v1
 kind: ReplicaSet
@@ -77,11 +27,11 @@ spec:
 
 执行`kubectl get pods -o wide -l app=kubia` 可以看到
 
-```
-NAME          READY   STATUS    RESTARTS   AGE     IP                 NODE     NOMINATED NODE   READINESS GATES
-kubia-hztvx   1/1     Running   0          2m12s   192.168.40.246   k8s-node1   <none>           <none>
-kubia-s5fbn   1/1     Running   0          2m12s   192.168.40.248   k8s-node1   <none>           <none>
-kubia-tc2hz   1/1     Running   0          2m12s   192.168.40.247   k8s-node2   <none>           <none>
+```shell
+NAME          READY   STATUS    RESTARTS   AGE     IP               NODE        NOMINATED NODE   READINESS GATES
+kubia-gbrhf   1/1     Running   0          4h      10.244.169.164   k8s-node2   <none>           <none>
+kubia-jg4nk   1/1     Running   0          3h54m   10.244.36.90     k8s-node1   <none>           <none>
+kubia-jzq82   1/1     Running   0          4h      10.244.36.89     k8s-node1   <none>           <none>
 ```
 
 新建一个curl应用用于访问集群Pod
@@ -96,7 +46,60 @@ spec:
     name: main
     command: ["sleep","9999999"]
 ```
-创建后执行`kubectl exec -it curl bash`进入容器内部，执行`curl 192.168.40.246/7/8：8080`均可正确返回容器hostname
+创建后执行
+```shell
+kubectl exec centos -- curl -s http://10.244.169.164:8080           ## 获得结果You've hit kubia-gbrhf
+kubectl exec centos -- curl -s http://10.244.36.90:8080             ## 获得结果You've hit kubia-jg4nk
+kubectl exec centos -- curl -s http://10.244.36.89:8080             ## 获得结果You've hit kubia-jzq82
+```
+可以看到访问不同IP时会返回其Pod的NAME
+
+### 1、端口转发
+- **原理**：类似iptables，将本机上的某一个端口的流量转发到一个指定的Pod的端口上(这个Pod可以是其他机器上的)。
+- **实现**：我们在master节点上执行`kubectl port-forward kubia-gbrhf 80:8080`   将master节点上的80 端口映射到pod(kubia-gbrhf)的8080端口上
+- **效果**：此时再curl http://master节点IP:80 时,流量自动跳转到kubia-gbrhf的8080端口上,获得返回结果You've hit kubia-gbrhf
+
+### 2、Service之ClusterIP
+- **原理**：虚拟一个IP及端口(IP自动虚拟生成的不可ping，网段由kubeadm初始化集群时指定,监听端口自行指定。)，当有集群网络内的流量(外部网络将无法访问)指向该虚拟IP的端口时，将被转发到指定的POD端口上。<br>
+![](https://github.com/wei-bowen/devops_lean/blob/main/images/ClusterIP.jpeg)
+
+- **实现**：
+```shell
+kubectl expose replicaset kubia --name=kubia-http --port=80 --target-port=8080 --dry-run=client -o yaml
+```
+```yaml
+##yaml定义如下
+metadata:
+  name: kubia-http
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: kubia
+```
+- expose暴露
+- --name 指定服务名称
+- --port=指定创建的服务监听的窗口
+- --target-port= 指定服务收到请求后，转发到资源的哪个窗口
+
+创建完成后执行`kubectl get service kubia-http -o wide`可以看到
+```
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE    SELECTOR
+kubia-http   ClusterIP   10.108.107.55   <none>        80/TCP    2m3s   app=kubia
+```
+- CLUSTER-IP: 给服务在集群网络中分配的虚拟网络IP，跟端口配合监听来自集群内的访问，其他资源访问`telnet 10.108.107.55 80`  可通
+- PORT(S)：第一个port跟CLUSTER-IP配合监听集群内部访问
+- SELECTOR：服务是与Pod通过标签选择器进行绑定的，所以要求Pod必须带有标签
+- **效果**：
+连续多次执行`kubectl exec centos -- curl -s http://10.108.107.55:80` 时，请求将被转发到后端带有app=kubia的pod的8080端口上,可以看到会三个Pod都有机会访问到。
+
+### Service之NodePort
+- **原理**：
+可以理解是clusterIP+端口转发。除了在集群网络内虚拟一个clusterIP以外，还会在pod所在的node机器上打开一个随机端口将监听到的流量转发到clusterIP上
+![](https://github.com/wei-bowen/devops_lean/blob/main/images/NodePort.jpeg)
+**实现**：
 
 然后起一个NodePort类型的Service
  ```yaml
@@ -114,6 +117,7 @@ spec:
     nodePort: 30123         ##指定节点打开的端口，不指定时分配随机端口
   selector:
     app: kubia
+  sessionAffinity: ClientIP
  ```
  **效果**：
  执行`kubectl get svc kubia-http`可以看到
@@ -126,7 +130,7 @@ kubia-http     NodePort       http://172.19.12.50   <none>    80:30123/TCP    70
  - CLUSTER-IP：分配的服务IP ，此时集群网络内访问 http://http://172.19.12.50 将会轮流转发到3个kubia的Pod上
  - PORTS： 前是服务的端口，后面是节点打开的端口。此时可以在k8s集群外(宿主机网络内)通过 http://节点IP:30123访问节点上的Pod
 
-### Service之LoadBalancer
+### 2、Service之LoadBalancer
  **效果**：
  >**使用负载均衡对外暴露服务**
  ```yaml
