@@ -97,48 +97,46 @@ kubia-http   ClusterIP   10.108.107.55   <none>        80/TCP    2m3s   app=kubi
 
 ### Service之NodePort
 - **原理**：
-可以理解是clusterIP+端口转发。除了在集群网络内虚拟一个clusterIP以外，还会在pod所在的node机器上打开一个随机端口将监听到的流量转发到clusterIP上
-![](https://github.com/wei-bowen/devops_lean/blob/main/images/NodePort.jpeg)
-**实现**：
-
-然后起一个NodePort类型的Service
+可以理解是clusterIP+端口转发。除了在集群网络内虚拟一个clusterIP以外，还会在pod所在的node机器上打开一个随机端口将监听到的流量转发到clusterIP上<br>
+![](https://github.com/wei-bowen/devops_lean/blob/main/images/NodePort%20.jpeg)
+- **实现**：
  ```yaml
-##kubectl expose rs kubia --port=80 --target-port=8080 --name=kubia-http --type=nodePort --dry-run=client -o yaml
+##kubectl expose replicaset kubia --name=kubia-nodeport --port=80 --target-port=8080 --type=NodePort --dry-run=client -o yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: kubia-http
+  creationTimestamp: null
+  name: kubia-nodeport
 spec:
-  type: NodePort
   ports:
-  - port: 80                ##指定服务打开的端口
+  - port: 80
     protocol: TCP
     targetPort: 8080
-    nodePort: 30123         ##指定节点打开的端口，不指定时分配随机端口
+    nodePort: 33333               ##这个可以不指定，由系统自动分配
   selector:
     app: kubia
-  sessionAffinity: ClientIP
+  type: NodePort
  ```
- **效果**：
- 执行`kubectl get svc kubia-http`可以看到
- 
+ 执行`kubectl get svc kubia-nodeport -o wide`可以看到
+ ```shell
+NAME             TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE   SELECTOR
+kubia-nodeport   NodePort   10.97.243.47   <none>        80:31961/TCP   43s   app=kubia
  ```
- NAME           TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE    SELECTOR
-kubia-http     NodePort       http://172.19.12.50   <none>    80:30123/TCP    70s    app=kubia
- ```
- 
- - CLUSTER-IP：分配的服务IP ，此时集群网络内访问 http://http://172.19.12.50 将会轮流转发到3个kubia的Pod上
- - PORTS： 前是服务的端口，后面是节点打开的端口。此时可以在k8s集群外(宿主机网络内)通过 http://节点IP:30123访问节点上的Pod
+ PORT(S) 80:31961/TCP :   80是服务的监听端口,31961是node节点打开的转发端口
+ - **效果**：
+ 此时执行`kubectl exec centos -- curl -s http://10.97.243.47:80` 效果与上面clusterIP效果是一样的。
+ 在集群网络外,直接执行`curl -s http://node节点IP:31961` 访问将会转发到http://10.97.243.47:80 ，获得同样效果。
 
 ### 2、Service之LoadBalancer
- **效果**：
- >**使用负载均衡对外暴露服务**
+- **原理：** 可以理解是在NodePort的基础上再起一个负载均衡服务。外部用户访问该服务时会通过均衡算法转发到节点的NodePort上，然后NodePort再转发到clusterIP服务上，再转Pod端口。
+![](https://github.com/wei-bowen/devops_lean/blob/main/images/LoadBalancer.jpg.jpeg)
+ - **实现：**
  ```yaml
- #kubectl expose rs kubia --name=kubia-loadbalan --type=LoadBalancer --port=80 --target-port=8080 --dry-run=client -o yaml
+ #kubectl expose replicaset kubia --name=kubia-balancer --port=80 --target-port=8080 --type=LoadBalancer --dry-run=client -o yaml
  apiVersion: v1
 kind: Service
 metadata:
-  name: kubia-loadbalan
+  name: kubia-balancer
 spec:
   ports:
   - port: 80
@@ -148,18 +146,21 @@ spec:
     app: kubia
   type: LoadBalancer
  ```
- 
- 执行`kubectl get svc kubia-loadbalan`可以看到
+ 执行`kubectl get svc kubia-balancer -o wide`可以看到
  
  ```
- NAME               TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)        AGE
-kubia-loadbalan   LoadBalancer     172.19.6.52   47.98.111.196   80:30146/TCP   23s
+NAME             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE    SELECTOR
+kubia-balancer   LoadBalancer   10.96.113.67   <pending>     80:32183/TCP   2m7s   app=kubia
  ```
- 
- 假如你使用的是公有云，例如阿里云ACK，会发现相对与NodePort，多了一个EXTERNAL-IP。这是云平台给服务开通的一个负载均衡服务的IP(如果是自己的机器，就需要自己配了) <br>
- 此时在外网使用http://EXTERNAL-IP  就可以自动负载均衡到3个Pod. 原来的基础功能与NodePORT一致
- 
- >**使用Ingress暴露服务**
+ - **效果：**
+ 此时看到EXTERNAL-IP不再是为空的状态，而是pending准备中。这是因为实在私网中搭建的k8s集群，并没有配置自动起给分配负载均衡地址的服务。<br>
+ 假如你使用的是公有云，例如阿里云ACK，就会自动向云平台申请一个LBS，并分配一个负载均衡的IP：EXTERNAL-IP。有兴趣也可以自己研究在私网配置负载均衡服务，参考[为私有Kubernetes集群创建LoadBalancer服务](https://www.jianshu.com/p/263185800214)<br>
+ 此时在外网使用http://EXTERNAL-IP  就可以自动负载均衡到节点的NodePort. 也具备其他和NodePORT一样的访问方式。
+
+### 使用Ingress暴露服务
+- **原理：** 更高级别形式的负载均衡，类似nginx的和反向代理负载均衡。LoadBalancer只能基于四层的转发，当我们的集群网络中由多个需要被外部网络访问的网站时，我们就需要为每一个网站分配一个LoadBalancer服务，消耗多个公网IP。而如果配置了Ingress服务，就可以基于七层协议进行即域名进行转发，只需要一个Ingress消耗一个公网IP。 <br>
+![](https://github.com/wei-bowen/devops_lean/blob/main/images/Ingress.jpg.jpeg)
+ - **实现:** 下面只是一个大概的示范
  ```yaml
  apiVersion: extensions/v1beta1
 kind: Ingress
@@ -192,17 +193,48 @@ NAME          HOSTS                               ADDRESS       PORTS   AGE
 web-forward   kubia.weibw.com,fortune.weibw.com   47.96.31.87   80      10m
 ```
 添加47.96.31.87 kubia.weibw.com和47.96.31.87 fortune.weibw.com两条解析后，输入解析的网址即可自动转发到不同的服务上。
->**让Ingress处理TLS传输**
-- 1、创建私钥和证书
+### 创建服务时的其他常用可选项
 ```
-openssl genrsa -out tls.key 2048
-
+.....
+spec:
+  session-affinity: ClientIP      ##会话亲和性，来自同一个客户端IP的请求将会始终被转发到同一个Pod上
+  externalTrafficPolicy: Local    ##节点端口的转发策略，当节点端口收到访问请求时，始终将请求转发到本节点的Pod上，避免转发到其他节点浪费流量。
 ```
-openssl签发证书有点问题，先不研究了，掠过
+>**endpoint**
+服务并非和Pod直连，而是通过endpoint。执行`kubectl describe svc kubia-http` 我们可以看到一条属性：
+`Endpoints:         10.244.169.164:8080,10.244.36.89:8080,10.244.36.90:8080`<br>
+也可以直接执行`kubectl get ep kubia-http`查看该endpoint资源的信息（ep与svc同名） <br>
+ep用于存储Pod的IP端口，当客户端连接到服务时，服务代理从中ep记录的IP端口中选择一个进行重定向。 <br>
+ep和服务可以单独进行定义。解耦的好处：svc选择ep,ep选择Pod，svc就不必必须通过标签选择器去选择Pod
+```yaml
+##先创建无选择器的SVC
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-svc
+spec:
+  ports:
+  - port: 80
+##创建同名ep即可自动关联
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: external-svc
+subsets:
+  - addresses:
+    - ip: 11.11.11.11
+    - ip: 22.22.22.22
+    ports:
+    - port: 80
+```
+### 发现服务  
+- 1、创建服务时记录服务的IP和端口，以后客户端需要访问Pod时再告知。比较麻烦，要记住服务-Pod的对应关系
+- 2、通过查看资源的环境变量发现。`kubectl exec fortune env | grep SERVICE`
+- 3、通过DNS发现： kube-system空间下有一个kube-dns的dns服务器，会存有解析所有服务的记录。当我们创建pod时，会默认指定其为dns服务器。服务只需要预先知道服务名称端口等信息即可，不必等到IP分配。访问格式为：服务名.所在命名空间.scv.cluster.local. 如果是在同一命名空间下的话只需要服务名字即可访问。例如访问http://kubia-http 即可跳转到kubia-http服务的访问接口。理论上是要指定服务端口的，但是如果使用了标准端口就可以省略。
 
-**------------------------------使用headless服务来发现独立的Pod---------------------------------------**
+### 使用headless服务来发现独立的Pod
 k8s允许客户通过DNS查找发现Pod的IP
-- 创建headless服务,其实就是一种clusterip为None的clusterIP
+- 创建headless服务,其实就是一种不分配集群IP的的clusterIP
 ```yaml
 ##kubectl expose rs kubia --name=kubia-headless --type=ClusterIP --cluster-ip=none --port=80 --target-port=8080 --dry-run=client -o yaml
 apiVersion: v1
@@ -248,67 +280,3 @@ metadata
 spec:
   ........
 ```
->**发现服务**  
-- 1、创建服务时记录服务的IP和端口，以后客户端需要访问Pod时再告知。比较麻烦，要记住服务-Pod的对应关系
-- 2、通过查看资源的环境变量发现。`kubectl exec fortune env | grep SERVICE`
-- 3、通过DNS发现  书里面讲的比较复杂，待研究
->**endpoint**
-服务并非和Pod直连，而是通过endpoint。执行`kubectl describe svc fortune-http` 我们可以看到一条属性：Endpoints: 10.244.36.65:80 <br>
-也可以直接执行`kubectl get ep kubia-http`查看改endpoint资源的信息（ep与svc同名） <br>
-ep用于存储Pod的IP端口，当客户端连接到服务时，服务代理从中ep记录的IP端口中选择一个进行重定向。 <br>
-ep和服务可以单独进行定义。解耦的好处：svc选择ep,ep选择Pod，svc就不必必须通过标签选择器去选择Pod
-```yaml
-##先创建无选择器的SVC
-apiVersion: v1
-kind: Service
-metadata:
-  name: external-svc
-spec:
-  ports:
-  - port: 80
-##创建同名ep即可自动关联
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: external-svc
-subsets:
-  - addresses:
-    - ip: 11.11.11.11
-    - ip: 22.22.22.22
-    ports:
-    - port: 80
-```
-**------------------------------ExternalName---------------------------------------**
-大意是创建一个域名形式而非IP的svc，用于绑定。Pod局域网DNS解析怎么弄我还不清楚，配置未生效.  请确认您已开通 PrivateZone 服务
-```yaml
-##ep配置
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: external-svc
-subsets:
-  - addresses:
-    - ip: 192.168.40.246
-    ports:
-    - port: 8080
-  - addresses:
-    - ip: 192.168.40.247
-    ports:
-    - port: 8080
-  - addresses:
-    - ip: 192.168.40.248
-    ports:
-    - port: 8080
-##svc配置
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: external-svc
-  name: external-svc
-spec:
-  externalName: test.weibw.cn
-  ports:
-  - port: 80
-  type: ExternalName
-  ```
