@@ -21,7 +21,7 @@
 - [04、使用控制器对Pod进行调度](./06-container/kubernetes/04、使用控制器对Pod进行调度.md)
 - [05、让客户端发现Pod](./06-container/kubernetes/05、让客户端发现Pod.md)
 - [06、磁盘挂载](./06-container/kubernetes/06、磁盘挂载.md)
-- [07、向容器传递参数配置](./06-container/kubernetes/07、向容器传递参数配置.md)
+- [07、向容器传递参数](./06-container/kubernetes/07、向容器传递参数.md)
 - [08、应用内访问Pod元数据及其他资源](./06-container/kubernetes/08、应用内访问Pod元数据及其他资源.md)
 - [09、Deployment应用](./06-container/kubernetes/09、Deployment应用.md)
 - [10、StatefulSet:部署有状态的应用](./06-container/kubernetes/10、StatefulSet:部署有状态的应用.md)
