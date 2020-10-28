@@ -20,20 +20,24 @@ kubectl explain pod                   ##查看资源元数据的数据项，后�
 
 >**查看资源状态**
 
-kubectl get 资源类型 名称
-```shell
-kubectl get nodes                     ##get查看资源状态，有node、pod、replication、deployment、service、ingress、
-kubectl get pods -o wide              ## -o wide 显示更详细信息，如所在节点位置、标签等
-kubectl get service -o wide -w        ## -w 动态刷新状态
-kubectl get ingress -o wide -o yaml   ## -o yaml 将资源状态已yaml格式输出到终端，还支持json格式
-kubectl get pods -n default           ## -n指定命名空间，查看该namespace下所有pod资源
-kubect
-....
-```
+kubectl get 资源类型 <名称> <可选项>
+- -o wide             ##o=output  输出详细信息
+- -n kube-system      ##指定查看某个namespce下的资源，默认时default命名空间
+- -A                  ##查看所有namespace下资源
+- -o yaml             ##yaml格式输出
+- -l app=kubia        ##按标签筛选，只看带有标签app且值为kubia的资源。值可以缺省，只过滤带有某个标签的资源
+- -L app              ##输出结果中加一个标签列，列名是标签名字，列的值是标签的值
+- -c imagename        ##指定查看Pod中的某个容器
+- --previous          ##查看pod的历史信息。Pod有可能被重新调度过，不加此选项只能看到最后一次调度的信息
+- --show-labels       ##打印资源的标签信息
 >**获取资源详细信息**
 
-kubectl get 资源类型 名称
+kubectl describe 资源类型 名称 <br>
 `kubectl describe node k8s-node1`
+
+kubectl logs Pod名称  查看Pod日志<br>
+`kubectl logs nginx`
+
 
 >**创建资源**
 ```shell
@@ -51,6 +55,10 @@ kubectl run kubia --image=luksa/kubia --port=8080 --generator=run/v1 --dry-run=c
 kubectl create -f resource.yaml
 kubectl apply -f resource.yaml
 ```
+>**为资源添加标签**
+
+kubectl label 资源类型 名称 标签=值，例如`kubectl lable node k8s-node1 env=dev`
+
 >**删除资源**
 ```shell
 kubectl delete 资源类型  名称
