@@ -1,4 +1,5 @@
-**pod的特性：**
+## 初识Pod
+### pod的特性
 - 可以认为是一个虚拟的逻辑主机，是k8s基本构件
 - Pod无法跨节点
 - pod可以包含多个容器
@@ -8,7 +9,7 @@
 - Pod应该包含一组紧密耦合的容器组，支持同时伸缩容
 - Pod创建时最先创建一个特殊容器infra(k8s.gcr.io/pause)，后面创建的容器再去共享它的网络和存储。
 
->**运行第一个pod**
+### 运行第一个pod**
 ```shell
 kubectl run kubia --image=luksa/kubia --port=8080
 ```
@@ -33,57 +34,34 @@ spec:                                                                      #Pod�
     - containerPort: 8080
        protocol: TCP                                                       #端口监听的协议类型，可以不指定，默认为TCP
 ```
+### Pod相关属性数据
 Pod常用的属性有：
 ```
-apiVersion: v1
-kind: Pod
-metadata:
-  annotations:                      ##Pod注释
+apiVersion: v1                      ##调用的接口，可以通过kubectl explain pod查看,必需字段
+kind: Pod                           ##资源类型。必需字段
+metadata:                           ##基础数据，包含名字、标签、注解等。必需字段
+  annotations:                      ##Pod注释，key-value形式
     key: value
-  labels:                           ##Pod标签，用于筛选
+  labels:                           ##Pod标签，key-value形式，用于筛选
     key: value
   clusterName: kube                 ##集群名称，默认可不写
-  name: kobe                        ##pod名称
+  name: kobe                        ##pod名称。必需字段
   namespace: default                ##运行的namespace，默认不写，在default命名空间内运行
-spec:
+spec:                               ##规格数据。必需字段
   activeDeadlineSeconds: 10         ##10秒为启动成功即标记失败
-  affinity:                         ##亲和性,调度策略，14章将到         
-  containers:                       ##容器组。必须字段
+  affinity:                         ##亲和性,调度策略，在《Pod调度策略》中讲到       
+  containers:                       ##容器组。必需字段
   hostAliases:                      ##主机名解析，内容在pod初始化时写入/etc/host文件中
   hostname:                         ##容器主机名
   initContainers:                   ##初始化容器,pod启动时最先启动的容器
   nodeName:                         ##指定部署在哪个节点上
   nodeSelector:                     ##节点选择策略
   restartPolicy:                    ##重启策略
-  serviceAccount:                   ##服务账户
+  serviceAccount:                   ##服务账户，在《k8s权限控制章节》讲到
   tolerations:                      ##污点容忍
-  volumes:                          ##磁盘挂载
+  volumes:                          ##磁盘挂载，在Pod初始化时指定，在containers-image下挂
 ```
->**将pod部署到指定标签的节点上**
-```yaml
-##在yaml定义文件的spec属性下添加nodeSelector
-sepc
-  nodeSelector	
-    gpu: "true"                                                            #添加选择器，要求部署在标签gpu值为true的节点机器上
-    os: centos                                                             #node有默认主机名标签如kubernetes.io/hostname=k8s-node1，可以通过该标签部署到指定机器
-                                                                             
-```
->**为pod添加host解析**
-即在/etc/hosts中添加内容
-```yaml
-apiVersion: v1
-kind: Pod
-...
-spec:
-  hostAliases:
-  - ip: "10.1.2.3"
-    hostnames:
-    - "foo.remote"
-    - "bar.remote"
-...
-```
->**指定运行的containers**
-- image
+pod.spec.containers常用属性
 ```yaml
 ...
 spec:
@@ -119,6 +97,50 @@ spec:
   - image: image2                        ##多个镜像
     .....
 ```
+
+- pod可以挂载磁盘，并给Pod内的容器挂载使用。参考[【磁盘挂载】](./04、磁盘挂载.md)
+- Pod内可以接受参数传递。参考[【参数传递】](/.05、向容器传递参数.md)
+- pod将运行1-n个容器。
+- 容器可以指定资源需求。
+### Pod规格设定示例
+
+>**为pod添加host解析**
+即在/etc/hosts中添加内容
+```yaml
+apiVersion: v1
+kind: Pod
+...
+spec:
+  hostAliases:
+  - ip: "10.1.2.3"
+    hostnames:
+    - "foo.remote"
+    - "bar.remote"
+...
+```
+Pod启动时,容器内的/etc/hosts文件将添加两列
+```
+....
+10.1.2.3  foo.remote
+10.1.2.3  bar.remote
+```
+>**为Pod添加终端，接受标准输入**
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  containers:
+  - name: shell
+    image: busybox
+    stdin: true
+    tty: true
+```
+- 启动的pod可以通过`kubectl attch Pod名称 -c 容器名称 -it`打开容器交互shell输入指令。**注意**指令输入完成后exit容器将同时关闭，crtl+pq可以退出命令行不关闭容器。<br>
+- 也可以执行`kubectl exec <-it> Pod名称 <-c 容器名称> -- 要执行的指令`
+
+更多使用详见后续章节。
 >**保持pod的健康**
 ***可以为pod添加存活探针(liveness probe)，通过探针定期检测容器是否在运行，如果探测失败将重启容器(image级别，非pod级别)
 - 1、HTTP GET探针。对指定端口和路径执行HTTP GET请求，相应代码2/3XX认为探测成功，否则失败
