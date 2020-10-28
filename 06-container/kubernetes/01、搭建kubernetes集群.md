@@ -100,10 +100,24 @@ kubeadm init \
 - --service-cidr 集群内部虚拟网络，Pod统一访问入口
 - --pod-network-cidr Pod网络，，与下面部署的CNI网络组件yaml中保持一致
 <br>
+也支持通过配置文件安装`kubeadm init --config kubeadm.yaml` 下面是一个范例，了解大致语法即可
+```yaml
+apiVersion: kubeadm.k8s.io/v1alpha1
+kind: MasterConfiguration
+controllerManagerExtraArgs:
+  horizontal-pod-autoscaler-use-rest-clients: "true"   ##允许使用自定义资源进行自动水平扩展
+  horizontal-pod-autoscaler-sync-period: "10s"
+  node-monitor-grace-period: "10s"
+apiServerExtraArgs:
+  runtime-config: "api/all=true"
+kubernetesVersion: "stable-1.11"
+```
+
 **安装成功后配置（按图说明即可）：** <br>
 
 ![安装成功截图](https://github.com/wei-bowen/kubernetes_learn/blob/master/images/install_finnish.png)
 
+因为kubernetes集群默认需要加密方式访问。下面的命令是将刚部署生成的kubernetes集群的安全配置文件保存到当前用户的.kube目录下，kubectl会默认使用目录下的授权信息访问集群。
 ```shell
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -113,8 +127,24 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 kubeadm join 192.168.0.77:6443 --token nuja6n.o3jrhsffiqs9swnu --discovery-token-ca-cert-hash sha256:63bca849e0e01691ae14eab449570284f0c3ddeea590f8da988c07fe2729e924
 ```
+**kubeadm init工作流程**
+- Preflight Checks. 检查Linux内核版本、cgroups模块、hostname、kubelet、端口占用、基础linux指令、dockker登
+- 在/etc/kubernetes/pki下生成对外提供服务作序的各种证书。（可以拷贝现有证书到目录下，kubeadm发现后会跳过此步骤）
+- 为master组件生成Pod配置文件。通过Static Pod的方式，Pod Yaml文件仿造/etc/kubernetes/manifests路径下即可启动。启动后通过检查localhost:6443/healthz检查组件状态
+- 为集群生成bootstrap token,让其他节点可以通过token加入集群
+- 将ca.crt登Master节点的重要信息，以configma的形式存入etcd,叫cluster-info
+- 安装默认插件kuber-proxy和DNS
 
-### 5、节点加入集群
+### 5、部署k8s集群网络插件(推荐calico网络，也可以自行搜索flannel安装)。
+
+master节点执行
+```shell
+wget https://docs.projectcalico.org/manifests/calico.yaml
+vim calico.yaml
+##搜寻CALICO_IPV4POOL_CIDR 找到后将该行- name前面的#号删掉取消注释，下一行的value前面的#号也删掉，并将IP端192.168.0.0改成我们在master初始化的时候配置的10.244.0.0
+```
+
+### 6、节点加入集群
 在节点上执行安装完成后的kubeadm join 命令即可加入集群，如果已过24小时或者不小心关闭窗口没复制到那个命令，可以 <br>
 在master节点上执行命令重新生成token
 ```shell
@@ -128,13 +158,7 @@ kubeadm reset     ##被踢出后需要重新加入的节点需要执行此命令
 kubeadm join 192.168.0.77:6443 --token $(上面生成的token) --discovery-token-ca-cert-hash sha256:$(上面生成的token校验码)
 ```
 此时在master节点执行 kubectl get nodes -o wide 即可看到加入集群的节点信息
-### 6、pod网络配置(推荐calico网络，也可以自行搜索flannel安装)。
-master节点执行
-```shell
-wget https://docs.projectcalico.org/manifests/calico.yaml
-vim calico.yaml
-##搜寻CALICO_IPV4POOL_CIDR 找到后将该行- name前面的#号删掉取消注释，下一行的value前面的#号也删掉，并将IP端192.168.0.0改成我们在master初始化的时候配置的10.244.0.0
-```
+
 ### 7、最终验证
 ```shell
 kubectl get nodes -o wide                     ###应该可以看到所有节点为ready状态
@@ -144,3 +168,14 @@ kubectl get pods -o wide                      ##可以看到每个节点都安�
 kubecte delete all --all                      ##清空刚创建的资源
 ```
 
+### 8、部署Dashboard可视化插件(可选)
+`kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-rc6/aio/deploy/recommended.yaml`
+
+### 9、部署容器存储插件（可选）
+存储插件可以在容器里挂载一个基于网络或者其他机制的远程数据卷，使得在容器中创建的文件，实际上是保存在远程存储服务器上，或者以分布式的方式保存在多节点上，而与当前宿主机没有任何绑定关系。这样，无论在其他哪个宿主机上启动新的容器，都可以请求挂载指定的持久化存储卷，从而访问到数据卷保存的内容。<br>
+此处演示一个可用的基于ceph的开源项目。后面存储章节再讲。
+```shell
+kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/examples/kubernetes/ceph/common.yaml
+kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/examples/kubernetes/ceph/operator.yaml
+kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/examples/kubernetes/ceph/cluster.yaml
+```
