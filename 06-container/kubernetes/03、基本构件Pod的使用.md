@@ -2,50 +2,29 @@
 - 可以认为是一个虚拟的逻辑主机，是k8s基本构件
 - Pod无法跨节点
 - pod可以包含多个容器
+- pod中的容器可以声明共享同一个Volume
 - Pod在相同命名空间namespace下互通
 - Pod内的容器共享一个IP和端口空间，所以Pod容器不应采用相同端口，会引起冲突
 - Pod应该包含一组紧密耦合的容器组，支持同时伸缩容
+- Pod创建时最先创建一个特殊容器infra(k8s.gcr.io/pause)，后面创建的容器再去共享它的网络和存储。
 
->**查看pod资源**
-```shell
-kubectl get pods                  ##查看当前默认命名空间内的所有pod资源 
-kubectl get pods -n kube-system   ##查看指定命名空间内的pod资源 
-kubectl get pods -A               ##查看所有命名空间内的Pod资源 
-kubectl get pod kubia             ##查看指定pod kubia的相关信息 
-kubectl get pod kubia -o wide     ##查看详细信息 
-kubecte get pod kubia -o yaml     ##以yaml格式输出pod的定义信息，同样支持json 
-kubectl get pods -l app=kubia     ##指定标签搜寻pod，可以指定多个标签，逗号隔开
-kubectl get pods -L=app           ##查看带有标签app的pod(无论标签是否赋值)
-kubectl describe pod kubia        ##查看指定Pod的详细定义+状态信息
-kubectl logs kubia                ##查看资源日志(不需要指定资源类型)
-kubectl logs kubia --previous     ##原来的容器崩溃后控制器会自动重建一个新的pod,加上此参数可以看到pod全部历史日志，否则只能看到新容器启动后的日志
-kubectl logs kubia -c nginx       ##查看资源内的容器日志
-```
 >**运行第一个pod**
 ```shell
-kubectl run kubia --image=luksa/kubia --port=8080 -n default
+kubectl run kubia --image=luksa/kubia --port=8080
 ```
 - kubectl run 后接pod名称，运行一个pod
 - --iamge= 指定要运行的容器
 - --port= 指定容器监听的端口
 - -n 指定namespace，可以不指定，默认就是default
->**使用YAML文件创建port**
-```shell
-kubectl explain pod                                                        ##查看创建一个pod所需的描述字段
-kubectl explain pod.spec                                                   ##查看Pod所需的spec字段的详细描述
-kubectl explain pod.spec.containers                                        ##查看更底层的对象
-kubectl get po kubia -o yaml                                               ##通过查看一个已存在的pod的定义yaml格式的描述作为参照
-kubectl run kubia --image=luksa/kubia --port=8080 --dry-run=client -o yaml ##--dry-run=client尝试创建而不实际创建，-o yaml以yaml格式输出创建结果，可以重定向到文件，加以修改后创建
-kubectl create -f kubia.yaml                                               ##指定从kubia.yaml创建pod，create可以用apply代替
-```
+
 **最终的kubia.yaml格式如下**
 ```yaml
-apiVersion: v1                                                             #使用的kubernetes API版本，可以使用kubectl explain pod看到
-kind: Pod                                                                  #创建的kubernetes资源类型
+apiVersion: v1                                                             #使用的kubernetes API版本，可以使用kubectl explain pod看到,必需
+kind: Pod                                                                  #创建的kubernetes资源类型,必需
 metadata:                                                                  #Pod的元数据，名字、标签、注解等
   labels:                                                                  #标签可以设置多个，对齐即可
     run: kubia                        
-  name: kubia
+  name: kubia                                                              #Pod名称,必需
 spec:                                                                      #Pod的规格内容，如运行的程序列表、监听的端口、挂载的目录等
   containers:
   - image: luksa/kubia                                                     #运行的docker容器名称，可以是多个，每个都单独一个-image
@@ -54,16 +33,31 @@ spec:                                                                      #Pod�
     - containerPort: 8080
        protocol: TCP                                                       #端口监听的协议类型，可以不指定，默认为TCP
 ```
->**利用标签对Pod进行分类，区分访问**
-```shell
-kubectl get pods --show-labels                                             #查看pod的标签
-kubectl get po -l app                                                      #列出包含标签env的Pod，无论其值如何
-kubectl get po -l !"app"                                                   #取反，列出不包含标签app的pod
-kubectl get po -l app=kubia,env=statle                                     #列出符合标签条件的pod，多个条件逗号隔开
-kubectl get po -l app!=kubia
-kubectl get po -l app in (v1,app)
-kubectl get po -l app notin (v1,app)
-kubectl get pods -L run                                                    #列出所有pods，在原来数据项的基础上加上一列run并填上对应的值
+Pod常用的属性有：
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:                      ##Pod注释
+    key: value
+  labels:                           ##Pod标签，用于筛选
+    key: value
+  clusterName: kube                 ##集群名称，默认可不写
+  name: kobe                        ##pod名称
+  namespace: default                ##运行的namespace，默认不写，在default命名空间内运行
+spec:
+  activeDeadlineSeconds: 10         ##10秒为启动成功即标记失败
+  affinity:                         ##亲和性,调度策略，14章将到         
+  containers:                       ##容器组。必须字段
+  hostAliases:                      ##主机名解析，内容在pod初始化时写入/etc/host文件中
+  hostname:                         ##容器主机名
+  initContainers:                   ##初始化容器,pod启动时最先启动的容器
+  nodeName:                         ##指定部署在哪个节点上
+  nodeSelector:                     ##节点选择策略
+  restartPolicy:                    ##重启策略
+  serviceAccount:                   ##服务账户
+  tolerations:                      ##污点容忍
+  volumes:                          ##磁盘挂载
 ```
 >**将pod部署到指定标签的节点上**
 ```yaml
@@ -71,29 +65,59 @@ kubectl get pods -L run                                                    #列�
 sepc
   nodeSelector	
     gpu: "true"                                                            #添加选择器，要求部署在标签gpu值为true的节点机器上
-    os: centos                                                                    #node有默认主机名标签如kubernetes.io/hostname=k8s-node1，可以通过该标签部署到指定机器
+    os: centos                                                             #node有默认主机名标签如kubernetes.io/hostname=k8s-node1，可以通过该标签部署到指定机器
                                                                              
 ```
->**为pod添加注解(跟label类似，也是键值对，但不可用于筛选)**
-```yaml
-##yaml定义文件的metadata下添加
-metadata:
-  annotations:
-    key1: valuea
-    key2: valueb
-##或者命令行添加(如果已存在则会直接覆盖)
-kubectl annotate pod nfspath key1="valuea",key2="valueb"
-```
->**使用namespace对pod资源进行分组**
-```shell
-kubectl get namespace                                 ##查看所有命名空间，其他类似可选项类似pod，namespace可简写为ns
-kubectl create ns test --dry-run=client -o yaml       ##创建新的ns
-```
+>**为pod添加host解析**
+即在/etc/hosts中添加内容
 ```yaml
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: test
+kind: Pod
+...
+spec:
+  hostAliases:
+  - ip: "10.1.2.3"
+    hostnames:
+    - "foo.remote"
+    - "bar.remote"
+...
+```
+>**指定运行的containers**
+- image
+```yaml
+...
+spec:
+  containers:
+  - image: nginx                        ##一个image一个容器
+    name: main
+    imagePullPolicy: Never              ##容器拉取策略,Always, Never, IfNotPresent,默认是Always           
+    command: ["/bin/bash"]
+    args: ["args1","args2","args3"] 
+    env:
+    - name: who
+      value: hi
+    envFrom：
+    ...                                 ##容器传参，第7章会讲到
+    lifecycle：                         ##触发器
+      postStart:                        ##启动后执行
+        exec:
+          command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+      preStop:                          ##即将停止时执行
+        exec:
+          command: ["/usr/sbin/nginx","-s","quit"]
+    livenessProbe：                      ##存活探针
+    readinessProbe：                     ##就绪探针
+    startupProbe:                        ##启动探针
+    ports:
+    - containerPort: 8080
+      protocol: TCP                      ##默认TCP,支持UDP,SCTP
+      name: http-port                    ##默认不写，指定别名，用于其他地方引用
+    resources：                          ##为容器申请资源，12章Pod资源使用控制讲到
+    stin: true
+    tty: ture
+    volumeMounts:                        ##磁盘挂载，要跟spec中定义的volumes配合
+  - image: image2                        ##多个镜像
+    .....
 ```
 >**保持pod的健康**
 ***可以为pod添加存活探针(liveness probe)，通过探针定期检测容器是否在运行，如果探测失败将重启容器(image级别，非pod级别)
