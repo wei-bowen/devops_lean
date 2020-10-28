@@ -3,15 +3,15 @@
 yum install -y bashcompletion
 source <(kubectl completion bash)
 ```
-  ##展示集群信息
-  ```shell
-  kubectl cluster-info
-  kubectl get cs                ##compose status
-  ```
+>**展示集群信息**
+```shell
+kubectl cluster-info
+kubectl get cs                ##compose status
+```
 
 
 
->***获取帮助**
+>**获取帮助**
 ```shell
 kubectl --help                        ##查看kubectl所有可用选项
 kubectl get --help                    ##查看kubectl get可用选项
@@ -19,6 +19,7 @@ kubectl explain pod                   ##查看资源元数据的数据项，后�
 ```
 
 >**查看资源状态**
+
 kubectl get 资源类型 名称
 ```shell
 kubectl get nodes                     ##get查看资源状态，有node、pod、replication、deployment、service、ingress、
@@ -30,6 +31,7 @@ kubect
 ....
 ```
 >**获取资源详细信息**
+
 kubectl get 资源类型 名称
 `kubectl describe node k8s-node1`
 
