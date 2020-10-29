@@ -66,3 +66,15 @@ spec:
       storage: 10Gi 
 ```
 ### 限定命名空间的可用资源总数
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: resouce-limit
+  namespace: default
+spec:
+  hard:
+  scopeSelector:
+  scopes:
+```
+### 监控Pod的资源使用量
