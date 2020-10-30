@@ -1,15 +1,29 @@
 ## 如何影响Pod被调度到哪个节点
-### 1、nodeName
-### 2、nodeSlector
+### 1、直接通过nodename指定节点
+```yaml
+...
+spec:
+  nodeName: k8s-master
+  containers:
+  - image: nginx
+    .....
+```
+### 2、nodeSlector，根据设定的规则通过标签筛选来选择节点
+```yaml
+...
+spec:
+  nodeSelector:
+    os: centos
+  containers:
+  - image: nginx
+    ....
+```
 ### 3、设置Node污点和Pod容忍度来阻止Pod调度到特定节点
 >**设置节点污点**
-
 - 以master节点为例，执行`kubectl describe nodes k8s-master | grep Taints`可以看到污点Taints
 ```
-Taints:             node-role.kubernetes.io/master:NoSchedule     ##缺省了value的污点
+Taints:             node-role.kubernetes.io/master:NoSchedule     ##污点的格式是`key=<value>:<effect>` 污点名称=<污点值>:<污点影响度>，这事是缺省了value的污点
 ```
-污点的格式是 &lt;key&gt;=&lt;value&gt;:&lt;effect&gt;
-
 **影响度effect**<br>
 - NoSchedule:不容忍则不能调度在此节点<br>
 - PreferNoSchedule:尽量阻止调度这个节点上，如果没有其他节点可以调度的话依然可以调度到这里<br>
