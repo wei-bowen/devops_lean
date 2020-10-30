@@ -101,7 +101,8 @@ spec:
 ```
 `kubectl descrbe quota`可以查看配额使用情况
 ### 监控Pod的资源使用量
-
+- 节点组件kubelet内置了一个名为cAdvisior的agent,跟随kubelet一起启动，可以搜集节点上所有Pod的资源使用情况。可以通过安装
+- Metrics Server是一个集群范围的资源使用情况数据聚合器。作为一个应用部署在集群中，从每个节点的kubelet的Summary API收集指标(其中包含了cAdvisior和kubelet本身汇总的信息)。Metrics Server通过聚合器注册在Master APIServer中。
 
 
 
