@@ -20,7 +20,7 @@
 - [02、kubectl命令的使用](06-container/kubernetes/02、kubectl命令的使用.md)
 - [03、初识Pod](06-container/kubernetes/03、初识Pod.md)
 - [04、容器存储](06-container/kubernetes/04、容器存储.md)
-- [05、传递参数](06-container/kubernetes/05、传递参数.md)
+- [05、向Pod传递参数](06-container/kubernetes/05、向Pod传递参数.md)
 - [06、Pod资源占用控制](06-container/kubernetes/06、Pod资源占用控制.md)
 - [07、使用控制器对Pod进行调度](06-container/kubernetes/07、使用控制器对Pod进行调度.md)
 - [08、Deployment应用](06-container/kubernetes/08、Deployment应用.md)
