@@ -131,10 +131,11 @@ spec:
 - Pod.spec.affinity.nodeAffinity    节点亲缘性
 - Pod.spec.affinity.podAffinity     Pod亲缘性
 - Pod.spec.affinity.podAntiAffinity Pod排斥性
+
 每种亲缘性下面都有是2个调度条件，都是调度之前影响，不影响已经调度好的Pod
 - requiredDuringSchedulingIgnoredDuringExecution    符合条件才调度。
 - preferredDuringSchedulingIgnoredDuringExecution   最好符合条件再调度,实在没地方去也可以调度。
->**2.3、在控制器模板中使用强制性节点亲缘性规则**
+>**在控制器模板中使用强制性节点亲缘性规则**
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -171,7 +172,7 @@ spec:
         name: busybox
         command: ["sleep","99999"]
 ```
->**2.4、优先性节点亲缘性**
+>**优先性节点亲缘性**
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -213,6 +214,7 @@ spec:
         command: ["sleep","99999"]
 ```
 >**Pod亲缘性**
+
 适用场景： 希望后端的应用与数据库应用靠的够近，方便读取数据
 - 1、强制性Pod亲缘性
 ```yaml
@@ -248,5 +250,6 @@ spec:
           namespaces: default
 ```
 >**Pod非亲缘性**
+
 适用场景：希望前端的应用分散开来，可以做到容灾，避免一起宕机
 用法与Pod亲缘性一模一样，只是字段有点变化。可以自行`kubectl explain po.spec.affinity.podAntiAffinity`查看
