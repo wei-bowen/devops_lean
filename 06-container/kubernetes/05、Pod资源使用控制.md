@@ -20,14 +20,16 @@ spec:
         memory: 50Mi            ##
       ...
 ```
-当多个pod都占用了超过其requests申请资源，导致节点资源不足时，节点将按其requests申请量按比例分配。<br>
+- 调度的时候,kube-sheduler会按照requests的值进行计算。但是真正设置Cgroups限制的时候，kubelet会按照limits值进行设置
+- 当多个pod都占用了超过其requests申请资源，导致节点资源不足时，节点将按其requests申请量按比例分配。
+- 节点cpu不足时Pod会“饥饿”，但是内存不足时将会被OEM杀掉
 PS:容器内指定top命令，看到的时容器被分配到的资源，并非节点的资源
 ### Pod的QoS机制
 当节点资源超过节点上所有Pod的使用量，出现资源不足时，k8s将按照QoS等级重新分配，优先分配给最高优先级，优先杀掉最低优先级。如果QoS等级相同时杀掉超用比例最高的<br>
 `kubectl describe pod podName`可以查看status.qosClass字段
 - BestEffort(最低优先级)：没有设置requests和limit字段的Pod
 - Burstable
-- Guaranteed(最高优先级)：每个容器都配置了相同的limits和requests的Pod
+- Guaranteed(最高优先级)：每个容器都配置了相同的limits和requests的Pod。此级别的Pod会通过cpuset的方式绑定到某个cpu的核上，不再共享其他cpu的算力，减少cpu进行上下文切换的次数，性能得到提升
 ### 配置命名空间内Pod的默认资源限制
 通过LimitRange资源进行限定
 ```yaml
@@ -66,6 +68,8 @@ spec:
       storage: 10Gi 
 ```
 ### 限定命名空间的可用资源总数
+- ResourceQuota插件会检查要创建的Pod是否会引起总资源量意出，如果是，部署请求将会被拒绝。ResourceQuota仅影响即将要部署的Pod，不影响已经部署的Pod
+- 创建ResourceQuota必须现有LimitRange，否则没有默认指定的资源需求，pod创建时如果不指定需求，将会被拒绝
 ```yaml
 apiVersion: v1
 kind: ResourceQuota
@@ -73,8 +77,31 @@ metadata:
   name: resouce-limit
   namespace: default
 spec:
-  hard:
-  scopeSelector:
-  scopes:
+  hard:                                 ##定义了命名空间下所有pod可申请/使用的资源总量
+    requests.cpu: 400m
+    requests.cpu: 200Mi
+    limits.cpu: 600m
+    limits.memory: 500mi
+    requests.storage: 500Gi             ##可生命的存储总量
+    ssd.storageclass.storage.k8s.io/requests.storage: 300Gi         ##以ssd命名的StorageClass的可申请的存储量
+    ssd.storageclass.storage.k8s.io/persistentvolumeclaims: 2       ##可申请的pvc数量
+    standard.storageclass.storage.k8s.io/requests.storage: 300Gi
+    pod: 10
+    replicationcontrollers: 5
+    configmap: 5
+    persistentvolumeclaims: 3
+    services: 5
+    services.loadbalancers: 3
+    services.nodeport: 2
+    ...
+  scopes:              ##指定作用范围
+  - BestEffort  
+  - Burstable
+  scopeSelector：      ##就3个QoS等级，没必要用选择器了
 ```
+`kubectl descrbe quota`可以查看配额使用情况
 ### 监控Pod的资源使用量
+
+
+
+
