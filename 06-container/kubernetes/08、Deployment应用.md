@@ -1,5 +1,7 @@
+## Deployment应用
 - Deployment用于部署应用程序并以声明的方式升级应用
 - Deployment通过调度replicaset去调度Pod
+- Deployment升级时先起新的Pod再停老的Pod，避免服务受影响
 
 >**创建第一个Deployment**
 ```yaml
@@ -22,11 +24,6 @@ spec:
       containers:
       - image: luksa/kubia:v1
         name: nodejs
-```
->**通过service访问Pod**
-```shell
-kubectl expose deployment kubia --port=80 --target-port=8080 --type=NodePort
-kubectl exec curl -- curl -s http://10.108.169.171                                          ##这个IP是service分配的
 ```
 >**升级Deployment**
 ```shell
