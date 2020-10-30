@@ -1,9 +1,10 @@
+## 使用控制器对Pod进行调度
 **某些场景下，我们期望一定数量的Pod保持运行，以应对某些计划外的变动，例如:**
 - 有人手动创建了相同类型的Pod
 - 有人删除/更改了现有的Pod
 - 节点资源不足等意外原因导致部分Pod崩溃
-
-**-------------------------ReplicaSet------------------------** <br>
+本章节将介绍三个类型的控制器。
+### 基础控制器ReplicaSet
 ReplicaSet的工作是确保Pod的数量始终与其标签选择器匹配，如果不匹配则根据需求增减运行的Pod数量。其由以下三部分组成
 - 标签选择器。根据标签选择器确定属于其控制域内的Pod。Pod也可以通过调整自身标签来退出/加入replicaset的控制域
 - 副本个数。指定运行的Pod数量
@@ -57,7 +58,7 @@ kubectl scale rs kubia --replicas=2     ##通过调整replicaset定义的副本�
 kubectl delete rs kubia --cascade=false   ##--cascade=false指定仅删除replicaset不删除控制域内的Pod，不指定则同时删除控制域内的Pod
 ```
 
-**-------------------------DaemonSet------------------------** <br>
+### 使用DaemonSet在每一个节点上运行一个Pod
 - DaemonSet与ReplicaSet不同，它将在每个节点上运行一个Pod，而不是在随机节点上运行指定数量的Pod
 - DaemonSet也可通过标签选择器来控制只在特定的节点上运行一个Pod
 >**创建一个DaemonSet**
@@ -92,7 +93,7 @@ kubectl edit ds ssd-monitor                   ##可以直接修改DaemonSet定�
 ```shell
 kubectl delete ds kubia --cascade=false   ##--cascade=false指定仅删除DaemonSet不删除控制域内的Pod，不指定则同时删除控制域内的Pod
 ```
-**-------------------------Job------------------------** <br>
+### 安排Job定期定量运行Pod
 - 允许你运行一种Pod,该Pod在内部进程成功结束时，不重启容器。一旦任务完成，pod就被认为处于完成状态。
 - 节点发生故障时，将按照replicaset的管理方式管理，再重启一个Pod
 >**创建一个Job资源**
