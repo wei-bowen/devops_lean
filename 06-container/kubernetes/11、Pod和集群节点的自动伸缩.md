@@ -19,7 +19,31 @@ spec:
   targetCPUUtilizationPercentage: 30        ##尽力保持cpu使用率维持再30%以内
 ```
 ### 基于自定义度量配置Pod的自动横向伸缩
-自定义监控指标，然后根据指标来定义自动伸缩的规则
+- 安装Custom Metrics APIServer(例如Prometheus得Adaptor)监控自定义指标
+- Custom Metrics APIServer启动后会提供一个custom.metrics.k8s.io的API
+- 在HPA中访问该API获取指标值指定伸缩策略
+```yaml
 
+kind: HorizontalPodAutoscaler
+apiVersion: autoscaling/v2beta1
+metadata:
+  name: sample-metrics-app-hpa
+spec:
+  scaleTargetRef:               ##被监控对象
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample-metrics-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:                          ##依据得指标
+  - type: Object
+    object:
+      target:                       ##指标获取得来源
+        kind: Service
+        name: sample-metrics-app
+      metricName: http_requests     ##指标的名称
+      targetValue: 100
+```
 
 ### 集群自动横向伸缩
+资源不足时向云端基础架构请求新的节点。需要云平台开放API接口
