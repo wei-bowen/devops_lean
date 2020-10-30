@@ -15,7 +15,7 @@
 #### [openstack](./06-container/openstack)
 #### [docker](./06-container/docker)
 #### [kubernetes](./06-container/kubernetes)
-- [00、k8s原理](./06-container/kubernetes/00、k8s原理.md)
+- [00、k8s原理](06-container/kubernetes/00、k8s原理.md)
 - [01、搭建kubernetes集群](./06-container/kubernetes/01、搭建kubernetes集群.md)
 - [02、kubectl命令的使用](./06-container/kubernetes/02、kubectl命令的使用.md)
 - [03、初识Pod](./06-container/kubernetes/03、初识Pod.md)
