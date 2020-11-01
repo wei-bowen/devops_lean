@@ -1,5 +1,4 @@
-## apiserver交互及其安全防护
-### 与Kubernetes API服务器交互
+## 与Kubernetes API服务器交互
 某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
 
 >**从Pod内部与API服务器进行交互**
