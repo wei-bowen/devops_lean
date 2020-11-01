@@ -1,4 +1,4 @@
-## kubernet API服务器的安全防护。
+## kubernet API服务器的安全防护
 ### 认证机制
 ### ServerAccounts
 ### 基于RBAC的权限控制插件
