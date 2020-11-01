@@ -1,10 +1,15 @@
 ## apiserver交互及其安全防护
 ## 与Kubernetes API服务器交互
 某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
-- **1、获取apiserver地址：**`kubectl cluster-info | awk '/master/{print $NF}'`
-- **2、直接访问apiserver：** `curl https://192.168.0.77:6443`,因为是https方式需要经过服务器证书检查,-k可以跳过此步骤，但是仍无法获得更多信息，因为k8s有权限控制机制。
-- **3、代理访问：**`kubectl proxy &`启用代理访问.原理大概是代理可以实现通过集群内部访问apiserver，不受权限控制影响。可以执行`curl 127.0.0.1:8001`访问
+- **1、获取apiserver地址**
 
+`kubectl cluster-info | awk '/master/{print $NF}'`
+- **2、直接访问apiserver**
+
+`curl https://192.168.0.77:6443`,因为是https方式需要经过服务器证书检查,-k可以跳过此步骤，但是仍无法获得更多信息，因为k8s有权限控制机制。
+- **3、代理访问**
+
+`kubectl proxy &`启用代理访问.原理大概是代理可以实现通过集群内部访问apiserver，不受权限控制影响。可以执行`curl 127.0.0.1:8001`访问
 - `kubectl cluster-info` 可以获取API服务的URL，例如`Kubernetes master is running at https://192.168.0.77:6443`
 - `curl https://192.168.0.77:6443 -k` -k是跳过服务器证书检查环节，可以获得少量信息。不加将无法获得任何信息。因为服务器使用了HTTPS细以且需要授权，不能随意交互
 - 可以创建代理服务来接受本机的HTTP连接，并处理身份认证，让我们在本机可以与真实的API服务器进行交互
