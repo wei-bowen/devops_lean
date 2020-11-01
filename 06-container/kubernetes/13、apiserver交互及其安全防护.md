@@ -1,9 +1,6 @@
 ## apiserver交互及其安全防护
 ### 与Kubernetes API服务器交互
-- 某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
-- 在k8s中，Pod、replicaset、service等都被定义为API对象存储在Etcd中。
-- API对象在Etcd中的完整路径是由API组/Version(对应Pod定义文件中的apiVersion后内容)/资源类型(对应Kind),可以通过https://apiserver的IP:端口/API组/Version/API资源类型
-- 核心的API对象(pod、node、services、configMap)不属于API组，直接在https://apiserver的IP:端口/api/v1下
+某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
 
 >**从Pod内部与API服务器进行交互**
 - 确定API服务器的位置
@@ -17,53 +14,19 @@
 ### 2、验证服务器身份。
 - 可以通过`curl https://kubernetes -k`跳过服务器身份验证，不安全，不建议
 - ca证书校验。Pod创建时会默认挂载了一个secret卷，可以通过`kubectl get pod PodName -o yaml`中查看到，挂载在`/var/run/secrets/kubernetes.io/serviceaccount/`下。指定ca文件进行校验即可。`curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes`或者直接指定环境变量`export CURL_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt`即可`curl https://kubernetes`直接访问
-### 3、通过API服务器的认证 
-`curl https://192.168.0.77:6443`,因为是https方式需要经过服务器证书检查,-k可以跳过此步骤，但是仍无法获得更多信息，因为k8s有权限控制机制。
-- **3、代理访问**
+### 3、获得API服务器的访问授权
+- 直接访问API服务器是被拒绝的，涉及到权限控制的问题，后续再讲
+- 集群外部网络可以通过代理的方式访问，可以通过`kubectl proxy &`启动代理，然后通过`curl http://127.0.0.1:8001`访问,此时是以集群管理员身份访问，拥有所有权限
+- Pod内部可以通过指定TOKEN来获取部分权限。`export TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)`然后`curl -H "Authorization: Bearer $TOKEN" https://kubernetes`可以访问该Pod绑定的serviceaccount所拥有的权限。
 
-`kubectl proxy &`启用代理访问.原理大概是代理可以实现通过集群内部访问apiserver，不受权限控制影响。可以执行`curl 127.0.0.1:8001`访问
-- `kubectl cluster-info` 可以获取API服务的URL，例如`Kubernetes master is running at https://192.168.0.77:6443`
-- `curl https://192.168.0.77:6443 -k` -k是跳过服务器证书检查环节，可以获得少量信息。不加将无法获得任何信息。因为服务器使用了HTTPS细以且需要授权，不能随意交互
-- 可以创建代理服务来接受本机的HTTP连接，并处理身份认证，让我们在本机可以与真实的API服务器进行交互
-```shell
-[root@k8s-master ~]# kubectl proxy &
-[1] 39105
-[root@k8s-master ~]# Starting to serve on 127.0.0.1:8001                  ##启动了一个代理服务，监听端口是8001
-[root@k8s-master ~]# curl http://127.0.0.1:8001                           ##访问代理服务，返回很多信息
-{
-  "paths": [
-    "/api",
-    "/api/v1",
-    "/apis",
-    "/apis/",
-    "/apis/admissionregistration.k8s.io",
-    "/apis/admissionregistration.k8s.io/v1",
-    "/apis/admissionregistration.k8s.io/v1beta1",
-....
-```
-- 调用第一个API：`curl 127.0.0.1:8001/apis/batch`，获得响应：
-```json
-{
-  "kind": "APIGroup",
-  "apiVersion": "v1",
-  "name": "batch",
-  "versions": [                                         ##返回全部可用版本
-    {
-      "groupVersion": "batch/v1",
-      "version": "v1"
-    },
-    {
-      "groupVersion": "batch/v1beta1",
-      "version": "v1beta1"
-    }
-  ],
-  "preferredVersion": {                                 ##建议用户使用的版本
-    "groupVersion": "batch/v1",
-    "version": "v1"
-  }
-}
-```
-- `curl 127.0.0.1:8001/apis/batch/v1` 列举betch/v1下的可用资源类型。job
+### 4、与apiserver进行交互
+`kubectl create clusterrolebinding permissive-bind --clusterrole=cluster-admin --group=system:serviceaccounts`将管理员权限赋给所有系统默认serviceaccount，暂时关闭权限控制。
+<br>先了解几个基本概念：
+- 在k8s中，Pod、replicaset、service等都被定义为API对象存储在Etcd中。
+- API对象在Etcd中的完整路径是由API组/Version(对应Pod定义文件中的apiVersion后内容)/资源类型(对应Kind),可以通过https://apiserver的IP:端口/API组/Version/API资源类型
+- 核心的API对象(pod、node、services、configMap)不属于API组，直接在https://apiserver的IP:端口/api/v1下
+
+示例：`curl http://localhost:8001/apis/batch/v1/`可以获得batch组v1版本下所有资源对象(只有jobs)
 ```json
 {
   "kind": "APIResourceList",
@@ -75,7 +38,7 @@
       "singularName": "",
       "namespaced": true,
       "kind": "Job",
-      "verbs": [                  ##资源对应可用的动词
+      "verbs": [
         "create",
         "delete",
         "deletecollection",
@@ -91,11 +54,11 @@
       "storageVersionHash": "mudhfqk/qZY="
     },
     {
-      "name": "jobs/status",        ##资源有一个专门的应答接口来修改起状态
+      "name": "jobs/status",
       "singularName": "",
       "namespaced": true,
       "kind": "Job",
-      "verbs": [                   ##状态可以被恢复、打补丁、修改
+      "verbs": [
         "get",
         "patch",
         "update"
@@ -103,44 +66,4 @@
     }
   ]
 }
-```
-- `curl 127.0.0.1:8001/apis/batch/v1/jobs` 可以获取集群中的所有JOB的清单
-- `curl 127.0.0.1:8001/apis/batch/v1/namespace/命名空间名称/jobs/job名称` 可以过去到该Job所有详细信息，结果等同于`kubectl get job job名称 -n 命名空间名称 -o json`
-
->**从Pod内部与API服务器进行交互**
-- 确定API服务器的位置
-- 确保是与真实的API服务器API交互，而非冒充者
-- 通过API服务器的认证
-
-**1、先建一个curl容器**
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: curl
-spec:
-  containers:
-  - image: tutum/curl
-    command: [sleep,99999999]
-    name: main
-```
-**2、连接API服务器
-```shell
-kubectl exec -it curl -- bash                                                 ##进入容器
-env | grep SERVICEk                                                           ##可以通过环境变量获取API服务相关信息
-curl https://kubernetes -k                                                    ##默认DNS就可以直接解析API服务器。但是此时跟上面提到的一样，我们要确认这事一个真实的API服务器，-k不安全
-export CURL_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt    ##定义CA环境变量，通过CA证书认证，这个证书前面secret章节提到过挂载在这里的
-curl https://kubernetes                                                       ##此时再访问即是安全的
-```
-**3、获得API服务器授权
-```shell
-export TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)       ##调用TOKEN访问
-curl -H "Authorization: Bearer $TOKEN" https://kubernetes                     此时访问可获得认证
-```
-**4、实操：获取当前命名空间下所有Pod**
-```shell
-NS=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)                     ##这个文件可以获取所在namespace
-curl -H "Authorization: Bearer $TOKEN" https://kubernetes/api/v1/namespaces/$NS/pods  ##涉及到身份认证，后面章节才讲。此时访问会提示权限不足
-exit
-kubectl create clusterrolebinding permissive-binding --clusterrole=cluster-admin --group=system:serviceaccounts ##回到master节点授予所有帐号管理员权限杰克正常访问
 ```
