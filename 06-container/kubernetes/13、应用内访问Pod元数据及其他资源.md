@@ -1,5 +1,19 @@
-## 从DownwardAPI传递元数据**
+## 应用内访问Pod元数据及其他资源
+
+### 从DownwardAPI传递元数据**
+当Pod中运行的程序需要知道Pod的IP地址等(在Pod被创建之前无法被预置的信息)时,可以通过Downward API给这些进程暴露Pod的元数据。可以暴露的信息包括：
+- **Pod的名称**：metadata.name
+- **Pod的IP地址**：status.podIP
+- **Pod所在的命名空间**：metadata.namespace
+- **Pod运行节点的名称**：spec.nodeName
+- **Pod运行所归属的服务账户的名称**：spec.serviceAccount
+- **每个容器请求的CPU和内存的使用量**：reources.request
+- **每个容器可以使用的CPU和内存的限制**：limits.memory
+- **Pod的标签**
+- **Pod的注解**
+以上信息都可以在创建Pod后通过`kubectl get pod PodName -o yaml`获取
 >**1、创建一个简单的单容器,通过环境变量暴露元数据**
+具体用法可以参照`kubectl explain pod.spec.containers.env.valueFrom`.其中属性数据使用的是`pod.spec.containers.env.valueFrom.fieldRef`，资源则是`kubectl explain pod.spec.containers.env.valueFrom.resourceFieldRef`
 ```yaml
 apiVersion: v1
 kind: Pod
