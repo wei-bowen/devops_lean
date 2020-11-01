@@ -19,7 +19,7 @@
 - 集群外部网络可以通过代理的方式访问，可以通过`kubectl proxy &`启动代理，然后通过`curl http://127.0.0.1:8001`访问,此时是以集群管理员身份访问，拥有所有权限
 - Pod内部可以通过指定TOKEN来获取部分权限。`export TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)`然后`curl -H "Authorization: Bearer $TOKEN" https://kubernetes`可以访问该Pod绑定的serviceaccount所拥有的权限。
 
-### 4、与apiserver进行交互
+### 4、与apiserver进行基本交互
 `kubectl create clusterrolebinding permissive-bind --clusterrole=cluster-admin --group=system:serviceaccounts`将管理员权限赋给所有系统默认serviceaccount，暂时关闭权限控制。
 <br>先了解几个基本概念：
 - 在k8s中，Pod、replicaset、service等都被定义为API对象存储在Etcd中。
@@ -29,17 +29,17 @@
 示例：`curl http://localhost:8001/apis/batch/v1/`可以获得batch组v1版本下所有资源对象(只有jobs)
 ```json
 {
-  "kind": "APIResourceList",
+  "kind": "APIResourceList",            ##获得资源清单列表返回
   "apiVersion": "v1",
   "groupVersion": "batch/v1",
-  "resources": [
+  "resources": [                        ##json内包含资源类型说明
     {
       "name": "jobs",
       "singularName": "",
       "namespaced": true,
       "kind": "Job",
-      "verbs": [
-        "create",
+      "verbs": [                        ##资源可以接受的动作请求
+        "create",   
         "delete",
         "deletecollection",
         "get",
@@ -54,7 +54,7 @@
       "storageVersionHash": "mudhfqk/qZY="
     },
     {
-      "name": "jobs/status",
+      "name": "jobs/status",       ##资源有一个专门的REST endpoint来修改其状态
       "singularName": "",
       "namespaced": true,
       "kind": "Job",
@@ -67,3 +67,60 @@
   ]
 }
 ```
+- `curl -s http://127.0.0.1:8001/apis/batch/v1/jobs`获取集群内所有jobs
+```json
+{
+  "kind": "JobList",
+  "apiVersion": "batch/v1",
+  "metadata": {
+    "selfLink": "/apis/batch/v1/jobs",
+    "resourceVersion": "3310352"
+  },
+  "items": [                                                              ##集群中所有相关资源列表，如果没有jos，items里面为空
+    {
+      "metadata": {
+        "name": "batch-job",
+        "namespace": "default",
+        "selfLink": "/apis/batch/v1/namespaces/default/jobs/batch-job",
+        "uid": "0005e867-cf06-4faa-b1f9-5b065ade03c3",
+        "resourceVersion": "3309807",
+        "creationTimestamp": "2020-11-01T14:08:55Z",
+        "labels": {
+          "app": "batch-job",
+          "controller-uid": "0005e867-cf06-4faa-b1f9-5b065ade03c3",
+          "job-name": "batch-job"
+        },
+        ....
+```
+- 获取指定namespace下所有jobs`curl -s http://127.0.0.1:8001/apis/batch/v1/namespaces/default/jobs`
+- 获取指定的job`curl -s http://127.0.0.1:8001/apis/batch/v1/namespaces/default/jobs/batch-job`,获取结果与`kubectl gep job batch-job -n default -o json`一致。
+### 5、通过ambassador容器简化与API服务器的交互
+- 原理就是在Pod内起一个kubectl proxy代理，以http方式访问代理，然后代理读取Pod内挂载的secret卷完成认证工作以https方式去访问APIServer
+创建一个centos容器，带上ambassador容器
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: centos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      os: centos
+  template:
+    metadata:
+      name: main
+      labels:
+        os: centos
+    spec:
+      hostname: centos
+      containers:
+      - name: main
+        image: centos
+        stdin: true
+        tty: true
+      - name: ambassador
+        image: luksa/kubectl-proxy:1.6.2
+```
+此时再执行`kubectl exec -it centos-ff9f84f85-6bl8p -c main -- bash `进入容器bash界面然后`curl http://127.0.0.1:8001`即可在容器内访问apiserver<br>
+
