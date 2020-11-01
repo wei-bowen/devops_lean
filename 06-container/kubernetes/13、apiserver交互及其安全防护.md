@@ -1,11 +1,23 @@
 ## apiserver交互及其安全防护
-## 与Kubernetes API服务器交互
-某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
-- **1、获取apiserver地址**
+### 与Kubernetes API服务器交互
+- 某些情况下，我们的应用需要知道其他Pod的信息，甚至是集群中其他资源的信息，就通过与API服务器进行交互来获取。
+- 在k8s中，Pod、replicaset、service等都被定义为API对象存储在Etcd中。
+- API对象在Etcd中的完整路径是由API组/Version(对应Pod定义文件中的apiVersion后内容)/资源类型(对应Kind),可以通过https://apiserver的IP:端口/API组/Version/API资源类型
+- 核心的API对象(pod、node、services、configMap)不属于API组，直接在https://apiserver的IP:端口/api/v1下
 
-`kubectl cluster-info | awk '/master/{print $NF}'`
-- **2、直接访问apiserver**
+>**从Pod内部与API服务器进行交互**
+- 确定API服务器的位置
+- 确保是与真实的API服务器API交互，而非冒充者
+- 通过API服务器的认证
 
+### 1、确定API服务器的位置
+- 外部地址：`kubectl cluster-info | awk '/master/{print $NF}'`
+- 集群内部网络中的IP地址可以通过Pod的环境变量获取，在容器中执行`env | grep KUBERNETES_SERVICE`
+- 集群内部直接访问htts://kubernetes即可
+### 2、验证服务器身份。
+- 可以通过`curl https://kubernetes -k`跳过服务器身份验证，不安全，不建议
+- ca证书校验。Pod创建时会默认挂载了一个secret卷，可以通过`kubectl get pod PodName -o yaml`中查看到，挂载在`/var/run/secrets/kubernetes.io/serviceaccount/`下。指定ca文件进行校验即可。`curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes`或者直接指定环境变量`export CURL_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt`即可`curl https://kubernetes`直接访问
+### 3、通过API服务器的认证 
 `curl https://192.168.0.77:6443`,因为是https方式需要经过服务器证书检查,-k可以跳过此步骤，但是仍无法获得更多信息，因为k8s有权限控制机制。
 - **3、代理访问**
 
