@@ -1,11 +1,6 @@
-## 应用内访问Pod元数据及其他资源
-
-### 从DownwardAPI传递元数据
-
- 
- ## 与Kubernetes API服务器交互
- - downwardAPI可以将Pod和容器的*自身部分*元数据传递给它们内部运行的进程
- - 需要暴露自身更多的元数据或者其他资源的元数据，就必须直接与K8s API服务直接进行交互来获取
+## apiserver交互及其安全防护
+## 与Kubernetes API服务器交互
+前面的章节已经介绍了通过Downward API的方式访问Pod的元数据，
  
  >**探究Kubernetes REST API**
 - `kubectl cluster-info` 可以获取API服务的URL，例如`Kubernetes master is running at https://192.168.0.77:6443`
