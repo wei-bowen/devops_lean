@@ -34,6 +34,11 @@ spec:                                                                      #Pod�
     - containerPort: 8080
        protocol: TCP                                                       #端口监听的协议类型，可以不指定，默认为TCP
 ```
+>静态pod
+
+k8s支持将Pod的定义YAML文件放到指定目录下，kubelet启动时即运行该Pod，无需命令行操作
+`cat /var/lib/kubelet/config.yaml | grep static `默认是`staticPodPath: /etc/kubernetes/manifests`，如果没有配置则需要手动配置一下，然后重启kubelet<>
+将Pod的定义YAML文件放在指定的/etc/kubernetes/manifests下即可。每个节点都可以这么操作。
 ### Pod相关属性数据
 Pod常用的属性有：
 ```
