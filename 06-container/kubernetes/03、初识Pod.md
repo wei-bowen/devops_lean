@@ -58,7 +58,7 @@ spec:                               ##规格数据。必需字段
   containers:                       ##容器组。必需字段
   hostAliases:                      ##主机名解析，内容在pod初始化时写入/etc/host文件中
   hostname:                         ##容器主机名
-  initContainers:                   ##初始化容器,pod启动时最先启动的容器
+  initContainers:                   ##初始化容器,pod启动时最先启动的容器，用法与containers是一模一样的
   nodeName:                         ##指定部署在哪个节点上
   nodeSelector:                     ##节点选择策略
   restartPolicy:                    ##重启策略
