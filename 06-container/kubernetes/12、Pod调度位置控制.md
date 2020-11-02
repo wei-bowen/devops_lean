@@ -34,6 +34,11 @@ spec:
   ...
 ```
 ### 3、设置Node污点和Pod容忍度来阻止Pod调度到特定节点
+>**直接驱逐**
+```shell
+kubectl cordon $NodeName                      ##表姐某个节点不可调度
+kubectl drain $NodeName -ignore-daemonsets    ##包括damonset
+````
 >**污点**
 - 以master节点为例，执行`kubectl describe nodes k8s-master | grep Taints`可以看到污点Taints
 ```
