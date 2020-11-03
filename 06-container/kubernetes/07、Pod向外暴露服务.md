@@ -193,6 +193,10 @@ NAME          HOSTS                               ADDRESS       PORTS   AGE
 web-forward   kubia.weibw.com,fortune.weibw.com   47.96.31.87   80      10m
 ```
 添加47.96.31.87 kubia.weibw.com和47.96.31.87 fortune.weibw.com两条解析后，输入解析的网址即可自动转发到不同的服务上。
+>**本地ingress置备器** 
+`wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.30.0/deploy/static/mandatory.yaml`
+镜像换成国内镜像`lizhenliang/nginx-ingress-controller:0.30.0`即可
+
 ### 创建服务时的其他常用可选项
 ```
 .....
