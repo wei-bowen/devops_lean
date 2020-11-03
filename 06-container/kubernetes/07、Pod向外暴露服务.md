@@ -195,7 +195,8 @@ web-forward   kubia.weibw.com,fortune.weibw.com   47.96.31.87   80      10m
 添加47.96.31.87 kubia.weibw.com和47.96.31.87 fortune.weibw.com两条解析后，输入解析的网址即可自动转发到不同的服务上。
 >**本地ingress置备器** 
 `wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.30.0/deploy/static/mandatory.yaml`
-镜像换成国内镜像`lizhenliang/nginx-ingress-controller:0.30.0`即可
+镜像换成国内镜像`lizhenliang/nginx-ingress-controller:0.30.0`即可,template.spec下配置一个hostNetwork: true即可绑定到宿主机网络上。<>
+原理大概就是起一个nginx的pod，然后该Pod使用了宿主机的80/443的监听。当我们创建ingress规则时，这个pod将在其nginx.conf配置文件中写上转发规则。然后我们访问该Pod的宿主机的80/443端口时，Pod根据接受的host请求，按照规则去转发给后端的services
 
 ### 创建服务时的其他常用可选项
 ```
