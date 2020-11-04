@@ -71,7 +71,10 @@ clusterrolebinding绑定用法与rolebinding并无区别，只是少了namespace
 #### 默认角色及其绑定
 ### 集群外用户访问
 kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及集群API Server通信的所有信息。kubeconfig 文件用来保存关于集群用户、命名空间和身份验证机制的信息。默认情况下 kubectl 读取 $HOME/.kube/config 文件，也可以通过设置环境变量 KUBECONFIG 或者 --kubeconfig 指定其他的配置文件。
-
+- **配置文件长这样**
+```
+apiVersion: v1
+```
 ### 管理员配置role/clusterrole并通过rolebind/clusterrolebind绑定到用户上
 - 用户不必创建，只要指定名字即可
 
