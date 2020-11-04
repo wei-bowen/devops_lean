@@ -1,4 +1,17 @@
 ## kubernet API服务器的安全防护
+- 访问kubernetes集群的资源需要过三关：认证(Authentication)、鉴权(Authorization)、准入控制
+- 普通用户访问API Server需要证书、token或者用户名加密码；Pod访问则需要ServiceAccount
+
+### 客户端身份证认证
+- HTTPS证书认证：基于CA证书签名的数字证书认证
+- HTTP Token:通过Token来识别用户
+- HTTP Base认证: 用户名+密码的方式
+
+#### 示例：为wbw用户授权default命名空间Pod的读写权限
+- **1、签发CA证书**
+- **2、生成kubeconfig授权文件**
+- **3、创建RBAC权限策略**
+
 ### 基于RBAC认证机制
 Role-Based Access Control 基于角色的权限管理。
 - 将资源的相关权限赋给角色/集群角色
