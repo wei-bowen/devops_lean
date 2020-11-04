@@ -1,18 +1,9 @@
 ## kubernet API服务器的安全防护
-- 访问kubernetes集群的资源需要过三关：认证(Authentication)、鉴权(Authorization)、准入控制
-- 普通用户访问API Server需要证书、token或者用户名加密码；Pod访问则需要ServiceAccount
+- Pod内访问：资源权限赋给role/clusterrole，然后通过rolebind/clusterrolebind绑定到serviceaccount，然后Pod创建时通过关联serviceaccount获得权限
+- 集群外账户访问。
 
-### 客户端身份证认证
-- HTTPS证书认证：基于CA证书签名的数字证书认证
-- HTTP Token:通过Token来识别用户
-- HTTP Base认证: 用户名+密码的方式
-
-#### 示例：为wbw用户授权default命名空间Pod的读写权限
-- **1、签发CA证书**
-- **2、生成kubeconfig授权文件**
-- **3、创建RBAC权限策略**
-
-### 基于RBAC认证机制
+### Pod内访问
+#### 基于RBAC认证机制
 Role-Based Access Control 基于角色的权限管理。
 - 将资源的相关权限赋给角色/集群角色
 - 为Pod创建ServiceAccount
@@ -22,7 +13,7 @@ Role-Based Access Control 基于角色的权限管理。
 例如： 创建一个数据库管理员DBA角色，集群内数据库相关的Pod的权限授给DBA，其他Pod的ServiceAccount只要绑定了DBA角色即拥有所有数据库相关Pod的权限。ServiceAccount可以绑定多个角色,多个Pod可以使用同一个ServiceAccount
 
 
-### 使用角色及角色绑定
+#### 使用角色及角色绑定
 - **1、打开权限控制**
 之前曾将集群管理员角色绑定给了系统默认ServiceAccount,现在需要删掉绑定`kubectl delete clusterrolebindings.rbac.authorization.k8s.io permissive-bind`,否则所有Pod默认都又集群管理员权限，无法验证我们后续的操作。<>
 此时再`kubectl exec -it centos -c main -- bash`进入centos应用内执行`curl http://127.0.0.1:8001/apis/app/v1/namespaces/default/deployments`尝试获取命名空间下所有deployments将会返回forbidden
@@ -59,7 +50,7 @@ subjects:                                     ##但是可以一次性将一个�
   namespace: default
 ```
 - 3、此时在绑定了default帐号的Pod内再执行`curl http://127.0.0.1:8001/apis/apps/v1/namespaces/default/deployments`可以访问到集群下所有deployments
-### 使用集群角色及集群角色绑定
+#### 使用集群角色及集群角色绑定
 集群级别的资源如node、Persistentvolume、Namespace等，需要使用集群角色进行授权,例如<br>
 `kubectl create clusterrole pv-reader --verb=get,list --resource=persistentvolumes --dry-run=client -o yaml`
 ```yaml
@@ -77,4 +68,38 @@ rules:
   - list
 ```
 clusterrolebinding绑定用法与rolebinding并无区别，只是少了namespace指定
-### 默认角色及其绑定
+#### 默认角色及其绑定
+### 集群外用户访问
+kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及集群API Server通信的所有信息。kubeconfig 文件用来保存关于集群用户、命名空间和身份验证机制的信息。默认情况下 kubectl 读取 $HOME/.kube/config 文件，也可以通过设置环境变量 KUBECONFIG 或者 --kubeconfig 指定其他的配置文件。
+#### 1、生成kubeconfig文件
+```shell
+kubectl config set-cluster kubernetes \
+--certificate-authority=/etc/kubernetes/pki/ca.crt \          ##指定ca文件
+--embed-certs=true \                                          ##ture是直接把ca.crt内容写入配置文件，不选ture则只指定crt文件位置
+--server=https://192.168.0.77:6443 \                          ##集群apiserver地址端口
+--kubeconfig=wbw.kubeconfig                                   ##指定将配置输出到哪个文件
+```
+上面只是示例，完整的配置文件示例：
+```yaml
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority: /etc/kubernetes/pki/ca.crt
+    server: https://192.168.0.77:6443
+  name: k8s-clusterName
+contexts:
+- context:
+    cluster: k8s-clusterName
+    user: userName
+    namespace: default
+  name: k8s-clusterName
+current-context: k8s-clusterName
+kind: Config
+preferences: {}
+users:
+- name: userName
+  user:
+    client-certificate: /etc/kubernetes/pki/apiserver.crt
+    client-key: /etc/kubernetes/pki/apiserver.key
+```
+
