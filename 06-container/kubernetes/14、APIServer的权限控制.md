@@ -188,8 +188,8 @@ kind: Config
 users:                                                                      ##用户列表，也是带crt/key认证的
 - name: dev-admin
   user:
-    client-certificate-data: XXXX                                           ##跟上面cluster的ca一样的，支持文件或者编码
-    client-key-data:
+    client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt    ##跟上面cluster的ca一样的，支持文件或者编码
+    client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
 - name: test-adm
   user:
     client-certificate-data:
