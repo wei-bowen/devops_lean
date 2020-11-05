@@ -70,54 +70,39 @@ rules:
 clusterrolebinding绑定用法与rolebinding并无区别，只是少了namespace指定
 #### 默认角色及其绑定
 ### 集群外用户访问
-- kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及读取与集群API Server通信的所需的所有信息(包括API地址、集群用户、验证信息、命名空间等)。
-- kubeconfig 文件默认是$HOME/.kube/config 文件，也可以通过kubectl --kubeconfig=/path/filename来临时指定
-- 还可以通过kubectl --namespace=NS --username=XXXX  等选项来临时覆盖kubeconfig中的内容
-- **配置文件长这样**
-可以执行`kubectl config set-cluster --....`
-```
-apiVersion: v1
-clusters:
-- cluster: 
-    certificate-authority-data: /etc/kubernetes/pki/ca.crt                  ##server的校验文件，验明集群身份。此处可以指定文件，也可以crt文件的内容
-    server: https://192.168.0.77:6443                                       ##apiserver地址
-  name: dev-cluster                                                         ##自定义的集群名称，为了区分不同集群，供上下文选择
-- cluseter:
-    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0...               ##集群server的校验文件内同
-    server: https://192.168.0.99:6443
-    name: test-cluster
-contexts:                                                                   ##上下文(翻译的不直观，就这么叫吧。kubectl通过上下文来选择要连接的集群)
-- context:
-    cluseter: dev-cluster
-    user: dev-admin
-  name: dev-adm@dev-cluseter
-- context:
-    cluseter: test-cluster
-    user: test-adm
-  name: test-adm@teat-cluseter
-current-context: name: dev-adm@dev-cluseter                                 ##默认选择的上下文
-kind: Config 
-users:                                                                      ##用户列表，也是带crt/key认证的
-- name: dev-admin
-  user:
-    client-certificate-data:
-    client-key-data:
-- name: test-adm
-  user:
-    client-certificate-data:
-    client-key-data:
-    
-    
-```
-### 管理员配置role/clusterrole并通过rolebind/clusterrolebind绑定到用户上
-- 用户不必创建，只要指定名字即可
+场景实战：加入我想给名字叫t-bag的用户授权访问集群192.168.0.77:6443中的kube-system命名空间的访问权限。需要完成以下步骤
+- 1、创建role授予kube-system的访问权限，然后将该role通过rolebinding绑定给用户t-bag
+- 2、签发集群的CA证书(用于验证是否访问到了正确的集群)、t-bag的认证证书t-bag.crt及其私钥t-bag.key(用于集群确认t-bag的身份)，三个文件给到t-bag
+- 3、t-bag使用配置好kubeconfig文件(文件中包含访问集群所需的所有信息)，然后使用kubectl命令行工具读取kubeconfig来访问集群
+#### 1、赋权
+就是上面讲到的RBAC授权。
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: kube-system
+  name: pod-reader
+rules:
+- apiGroups: [""] 
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
 
-#### 1、生成客户端身份认证文件
-三种客户端身份认证
-- K8S CA签发的证书
-- Token
-- 用户名+密码
->K8S CA签发
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: kube-system
+subjects:
+- kind: User
+  name: t-bag
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+#### 2、签发证书
 ```shell
 mkdir -p /usr/local/kubernetes/bin && cd /usr/local/kubernetes/bin
 wget -O cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
@@ -138,10 +123,10 @@ cat > ca-config.json << EOF
             "kubernetes": {
                 "expiry": "8760h",
                 "usages": [
-                    "signing",                  ##表示该证书可用于签名其他证书
+                    "signing",                  //表示该证书可用于签名其他证书
                     "key encipherment",         
-                    "server auth",              ##表示该CA对server提供的证书进行验证
-                    "client auth",              ##表示该CA对client提供的证书进行验证
+                    "server auth",              //表示该CA对server提供的证书进行验证
+                    "client auth"              //表示该CA对client提供的证书进行验证
                 ] 
             }
         }
@@ -151,7 +136,7 @@ EOF
 ###⬇创建CA签名文件
 cat > node1-adm-csr.json << EOF
 {
-    "CN": "node1-adm",                          ##用户名
+    "CN": "t-bag",                          //用户名
     "hosts": [],
     "key": {
         "algo": "rsa",
@@ -161,44 +146,78 @@ cat > node1-adm-csr.json << EOF
         {
             "C": "US",
             "L": "HZ",
-            "ST": "Hangzhou"
-            "O": "node-adm"                     ##用户组
+            "ST": "Hangzhou",
+            "O": "node-adm",                     //用户组
             "OU": "System"
         }
     ]
 }
 EOF
+cfssl gencert -ca=/etc/kubernetes/pki/ca.crt -ca-key=/etc/kubernetes/pki/ca.key --config=ca-config.json  t-bag-csr.json | cfssljson -bare t-bag
 ```
-#### 2、配置权限
-#### 3、生成kubeconfig文件
-```shell
-kubectl config set-cluster kubernetes \
---certificate-authority=/etc/kubernetes/pki/ca.crt \          ##指定ca文件
---embed-certs=true \                                          ##ture是直接把ca.crt内容写入配置文件，不选ture则只指定crt文件位置
---server=https://192.168.0.77:6443 \                          ##集群apiserver地址端口
---kubeconfig=wbw.kubeconfig                                   ##指定将配置输出到哪个文件
+**这一步比较操蛋，没研究成功，我们就假设成功生成了验证文件**
+#### 3、配置kubeconfig文件
+- kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及读取与集群API Server通信的所需的所有信息(包括API地址、集群用户、验证信息、命名空间等)。
+- kubeconfig 文件默认是$HOME/.kube/config 文件，也可以通过kubectl --kubeconfig=/path/filename来临时指定
+- 还可以通过kubectl --namespace=NS --username=XXXX  等选项来临时覆盖kubeconfig中的内容
+- **配置文件长这样**
+可以执行`kubectl config set-cluster --....`
 ```
-上面只是示例，完整的配置文件示例：
-```yaml
 apiVersion: v1
 clusters:
-- cluster:
-    certificate-authority: /etc/kubernetes/pki/ca.crt
-    server: https://192.168.0.77:6443
-  name: k8s-clusterName
-contexts:
+- cluster: 
+    certificate-authority: /etc/kubernetes/pki/ca.crt                       ##server的校验文件，验明集群身份。此处也支持certificate-authority-data: cry的具体内容| base64  编码
+    server: https://192.168.0.77:6443                                       ##apiserver地址
+  name: dev-cluster                                                         ##自定义的集群名称，为了区分不同集群，供上下文选择
+- cluseter:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0...               ##这是cat /etc/kubernetes/pki/ca.crt | base64 经过编码的内容
+    server: https://192.168.0.99:6443
+    name: test-cluster
+contexts:                                                                   ##上下文(翻译的不直观，就这么叫吧。kubectl通过上下文来选择要连接的集群)
 - context:
-    cluster: k8s-clusterName
-    user: userName
-    namespace: default
-  name: k8s-clusterName
-current-context: k8s-clusterName
-kind: Config
-preferences: {}
-users:
-- name: userName
+    cluseter: dev-cluster
+    user: dev-admin
+    namespace: kube-system                                                  ##指定访问集群使用的默认命名空间
+  name: dev-adm@dev-cluseter
+- context:
+    cluseter: test-cluster
+    user: test-adm
+  name: test-adm@teat-cluseter
+current-context: name: dev-adm@dev-cluseter                                 ##默认选择的上下文
+kind: Config 
+users:                                                                      ##用户列表，也是带crt/key认证的
+- name: dev-admin
   user:
-    client-certificate: /etc/kubernetes/pki/apiserver.crt
-    client-key: /etc/kubernetes/pki/apiserver.key
+    client-certificate-data: XXXX                                           ##跟上面cluster的ca一样的，支持文件或者编码
+    client-key-data:
+- name: test-adm
+  user:
+    client-certificate-data:
+    client-key-data:
+```
+kubectl默认读取$HOME/.kube/config的内容,也可指定`kubectl --kubeconfig=配置文件 [command]`，还可以指定选项覆盖配置文件中的配置项`kubectl --kubeconfig=配置文件 --user=t-bag --namespace=kube-system [command]`
+>**kubeconfig的其他操作
+- 1、添加或者修改一个集群
+```shell
+kubectl config set-cluster 集群名称 \
+--server=https://192.168.0.77:6443 \
+--certificate-authority=/path/cafile \
+....
+```
+- 2、添加或者修改用户凭据
+```shell
+kubectl config set-credentials foo --username=foo --password=pass
+kubectl config set-credentials foo --token=mysecrettokenXFSSSFF
+```
+- 3、添加上下文，即将集群和用户联系起来
+```shell
+kubectl config set-context 上下文名称 --cluseter=集群名称 --user=foo --namespace=default
 ```
 
+- 4、切换上下文
+```shell
+kubectl config current-context                ##获取当前上下文
+kubectl config get-contexts                   ##获取所有上下文
+kubectl config use-context 上下文名称         ##切换上下文
+kubectl config delete-context 上下文          ##删除上下文 
+```
