@@ -3,11 +3,11 @@
 **TLS Bootstraping：**在kubernetes集群中，Node上组件kubelet和kube-proxy都需要与kube-apiserver进行通信，为了增加传输安全性，采用https方式。这就涉及到Node组件需要具
 备kube-apiserver用的证书颁发机构（CA）签发客户端证书，当规模较大时，这种客户端证书颁发需要大量工作，同样也会增加集群扩展复杂度。
 为了简化流程，Kubernetes引入了TLS bootstraping机制来自动颁发客户端证书，所以强烈建议在Node上使用这种方式。
-### 1、kube-apiserver启用Bootstrap Token
+#### 1、kube-apiserver启用Bootstrap Token
 一般是默认开启了的。apiserver是以静态pod的形式启动的，可以直接查看其启动文件确认是否启用<br>
 `grep "enable-bootstrap-token-auth=true" /etc/kubernetes/manifests/kube-apiserver.yaml`<br>
 未启动就在其pod.spec.containers.command下添加 - --enable-bootstrap-token-auth=true
-### 2、使用Secret存储Bootstrap Token
+#### 2、使用Secret存储Bootstrap Token
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -24,7 +24,7 @@ stringData:
   usage-bootstrap-signing: "true"
   auth-extra-groups: system:bootstrappers:worker,system:bootstrappers:ingress
 ```
-### 3、创建RBAC角色绑定，允许 kubelet tls bootstrap 创建 CSR 请求
+#### 3、创建RBAC角色绑定，允许 kubelet tls bootstrap 创建 CSR 请求
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -39,4 +39,19 @@ roleRef:
   name: system:node-bootstrapper
   apiGroup: rbac.authorization.k8s.io
 ```
-### node节点上的kubelet配置 bootstrap kubeconfig文件
+#### node节点上的kubelet配置 bootstrap kubeconfig文件
+
+### etcd数据库备份还原
+- kubeadm init方式安装的。备份
+```
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/                   ##移除api-server,让其停止工作，防止新的数据写入
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/peer.crt --key=/etc/kubernetes/pki/etcd/peer.key snapshot save /opt/snapshot-20201105.db       ##获得备份文件 /opt/snapshot-20201105.db
+mv /etc/kubernetes/kube-apiserver.yaml /etc/kubernetes/manifests/                   ##重新移回来，正常工作
+```
+- kubeadm init方式安装的。还原
+```
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/                   ##移除api-server,让其停止工作，防止新的数据写入
+mv /var/lib/etcd /var/lib/etcd.bak                                                  ##删除当前etcd数据目录
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 snapshot restore /opt/snapshot-20201105.db --data-dir=/var/lib/etcd    ##恢复快照
+mv /etc/kubernetes/kube-apiserver.yaml /etc/kubernetes/manifests/                   ##恢复api-server
+```
