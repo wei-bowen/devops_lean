@@ -45,7 +45,7 @@ roleRef:                                      ##一次绑定只能绑定一个�
   kind: Role
   name: deployment-admin
 subjects:                                     ##但是可以一次性将一个角色赋给多个帐号主体
-- kind: ServiceAccount
+- kind: ServiceAccount                        ##kind可以是ServiceAccount/User/Group 后面是真实的账号用户组
   name: default
   namespace: default
 ```
@@ -70,10 +70,44 @@ rules:
 clusterrolebinding绑定用法与rolebinding并无区别，只是少了namespace指定
 #### 默认角色及其绑定
 ### 集群外用户访问
-kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及集群API Server通信的所有信息。kubeconfig 文件用来保存关于集群用户、命名空间和身份验证机制的信息。默认情况下 kubectl 读取 $HOME/.kube/config 文件，也可以通过设置环境变量 KUBECONFIG 或者 --kubeconfig 指定其他的配置文件。
+- kubectl 命令行工具通过 kubeconfig 文件的配置来选择集群以及读取与集群API Server通信的所需的所有信息(包括API地址、集群用户、验证信息、命名空间等)。
+- kubeconfig 文件默认是$HOME/.kube/config 文件，也可以通过kubectl --kubeconfig=/path/filename来临时指定
+- 还可以通过kubectl --namespace=NS --username=XXXX  等选项来临时覆盖kubeconfig中的内容
 - **配置文件长这样**
+可以执行`kubectl config set-cluster --....`
 ```
 apiVersion: v1
+clusters:
+- cluster: 
+    certificate-authority-data: /etc/kubernetes/pki/ca.crt                  ##server的校验文件，验明集群身份。此处可以指定文件，也可以crt文件的内容
+    server: https://192.168.0.77:6443                                       ##apiserver地址
+  name: dev-cluster                                                         ##自定义的集群名称，为了区分不同集群，供上下文选择
+- cluseter:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0...               ##集群server的校验文件内同
+    server: https://192.168.0.99:6443
+    name: test-cluster
+contexts:                                                                   ##上下文(翻译的不直观，就这么叫吧。kubectl通过上下文来选择要连接的集群)
+- context:
+    cluseter: dev-cluster
+    user: dev-admin
+  name: dev-adm@dev-cluseter
+- context:
+    cluseter: test-cluster
+    user: test-adm
+  name: test-adm@teat-cluseter
+current-context: name: dev-adm@dev-cluseter                                 ##默认选择的上下文
+kind: Config 
+users:                                                                      ##用户列表，也是带crt/key认证的
+- name: dev-admin
+  user:
+    client-certificate-data:
+    client-key-data:
+- name: test-adm
+  user:
+    client-certificate-data:
+    client-key-data:
+    
+    
 ```
 ### 管理员配置role/clusterrole并通过rolebind/clusterrolebind绑定到用户上
 - 用户不必创建，只要指定名字即可
