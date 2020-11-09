@@ -93,6 +93,17 @@ kubeadm init \
   --pod-network-cidr=10.244.0.0/16 \
   --ignore-preflight-errors=all
 ```
+也支持按配置文件初始化 `kubeadm init -f 配置文件 --ignore-preflight-errors=all` <br>
+`kubeadm config print init-defaults`可以获取默认配置,修改一下跟上面对应
+```yaml
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+kubernetesVersion: v1.19.0
+imageRepository: registry.aliyuncs.com/google_containers
+networking:
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/12
+```
 **相关配置项说明：**  
 - --apiserver-advertise-address 集群对外通告地址，局域网内默认为master节点IP地址
 - --image-repository  由于默认拉取镜像地址k8s.gcr.io国内无法访问，这里指定阿里云镜像仓库地址
