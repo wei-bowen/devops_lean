@@ -1,4 +1,4 @@
-# 第一章、创建一个kubernetes集群
+## 第一章、创建一个kubernetes集群
 ### 1、环境准备
  3台虚拟机/物理机。均为双核4G，硬盘70G，系统为centos7.6. 没有条件就降低配置，应该不是很要紧。 <br>
    IP地址(IP网络使用nat网络，dhcp自动分配即可)为： 
@@ -93,6 +93,12 @@ kubeadm init \
   --pod-network-cidr=10.244.0.0/16 \
   --ignore-preflight-errors=all
 ```
+**相关配置项说明：**  
+- --apiserver-advertise-address 集群对外通告地址，局域网内默认为master节点IP地址
+- --image-repository  由于默认拉取镜像地址k8s.gcr.io国内无法访问，这里指定阿里云镜像仓库地址
+- --kubernetes-version K8s版本，与上面安装的一致
+- --service-cidr 集群内部虚拟网络，Pod统一访问入口
+- --pod-network-cidr Pod网络地址段
 也支持按配置文件初始化 `kubeadm init -f 配置文件 --ignore-preflight-errors=all` <br>
 `kubeadm config print init-defaults`可以获取默认配置,修改一下跟上面对应
 ```yaml
@@ -104,25 +110,7 @@ networking:
   podSubnet: 10.244.0.0/16
   serviceSubnet: 10.96.0.0/12
 ```
-**相关配置项说明：**  
-- --apiserver-advertise-address 集群对外通告地址，局域网内默认为master节点IP地址
-- --image-repository  由于默认拉取镜像地址k8s.gcr.io国内无法访问，这里指定阿里云镜像仓库地址
-- --kubernetes-version K8s版本，与上面安装的一致
-- --service-cidr 集群内部虚拟网络，Pod统一访问入口
-- --pod-network-cidr Pod网络，，与下面部署的CNI网络组件yaml中保持一致
-<br>
-也支持通过配置文件安装`kubeadm init --config kubeadm.yaml` 下面是一个范例，了解大致语法即可
-```yaml
-apiVersion: kubeadm.k8s.io/v1alpha1
-kind: MasterConfiguration
-controllerManagerExtraArgs:
-  horizontal-pod-autoscaler-use-rest-clients: "true"   ##允许使用自定义资源进行自动水平扩展
-  horizontal-pod-autoscaler-sync-period: "10s"
-  node-monitor-grace-period: "10s"
-apiServerExtraArgs:
-  runtime-config: "api/all=true"
-kubernetesVersion: "stable-1.11"
-```
+PS：集群安装完成后，相关配置信息会放在configMap里面，`kubectl get configmaps kubelet-config-1.19 -n kube-system -o yaml`即可查看
 
 **安装成功后配置（按图说明即可）：** <br>
 
@@ -190,3 +178,28 @@ kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/exam
 kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/examples/kubernetes/ceph/operator.yaml
 kubectl apply -f https://raw.githubusercontent.com/rook/rook/master/cluster/examples/kubernetes/ceph/cluster.yaml
 ```
+
+>**二进制安装**
+- etcd服务安装
+### etcd服务安装
+- 1、访问https://github.com/etcd-io/etcd/releases 按需选择版本下载。此处选择最新的3.4.13
+```shell
+mkdir /tmp/etcd_download/ && cd /tmp/etcd_download && rm -rf /tmp/etcd_download/*
+wget https://github.com/etcd-io/etcd/releases/download/v3.4.13/etcd-v3.4.13-linux-amd64.tar.gz
+tar -zxf etcd-v3.4.13-linux-amd64.tar.gz
+cp etcd-v3.4.13-linux-amd64/etcd* /usr/bin/
+cat > /usr/lib/systemd/system/etcd.service << EOF           ##配置成系统服务
+[Unit]
+Description=Etcd Server                   
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/etcd/                            ##指定数据目录，该目录需要手动创建
+EnvironmentFile=-/etc/etcd/etcd.conf                       ##参数文件
+ExecStart=/usr/bin/etcd
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
