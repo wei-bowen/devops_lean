@@ -42,7 +42,7 @@ iptables的表概念就是对应不同的检查部门，负责不同的职能，
 
 ```
 
-### filer过滤规则管理
+### 规则管理
 iptables的基本管理规则:
 - 在一道关卡(链)上可能要接受多个部门(tables)的检查，他们是有优先级的，同时在场时raw>mangle>nat>filter
 - 在关卡(链)上接受检查时，是按不同部门(tables)设定的rules顺序检查，只要符合了其中一条匹配规则后即执行检查后操作(放行ACCEPT/丢弃DROP/转到自定义链继续检查)。不再执行后续规则的匹配。
@@ -51,8 +51,14 @@ iptables的基本管理规则:
 #### 设定默认规则
 `iptables -t filter -P INPUT (DROP|ACCEPT)`   将表的指定链默认操作设为放行或者丢弃。
 
+#### 添加自定义链
+`iptables -t filter -N BLACKLIST` 创建自定义链黑名单BLACKLIST<br>
+`iptables -t filter -E BLACKLIST newName`重命名自定义链<br>
+`iptables -X BLACKLIST`必须先清空规则且确认无引用时才能删除。<br>
+
 #### 添加规则
-例如`iptables -A INPUT -s 192.168.0.90 -j DROP`   在INPUT关卡末尾添加一条规则，数据包来自192.168.0.90时执行丢弃操作。其他可用选项：
+例如`iptables -A INPUT -s 192.168.0.90 -j DROP`   在INPUT关卡末尾添加一条规则，数据包来自192.168.0.90时执行丢弃操作。<br>
+格式：`iptables 指定表 -A追加/I插入 链 匹配规则 -j 操作`。可用选项：
 ```
 -t filter           :     指定表面同样默认filter可以省略，其他如nat需要指定
 -A INPUT            :     在INPUT关卡末尾添加一条规则。前面说过iptables是按顺序匹配的，顺序有意义。A指appendend追加
@@ -60,10 +66,30 @@ iptables的基本管理规则:
 -I INPUT 6          :     指定位置插入，放在第6位。
 -j                  :     当匹配时执行的操作。可以是ACCEPT放行、DROP丢弃、或者指定一个链名(可以是自定义链)，流转到下一个链进行检查
 ```
-
+>**匹配规则的更多常规用法**
+```
+-s            :     指定数据来源IP，可以是逗号隔开的多个单独IP(-s 192.168.0.80,10.244.1.99)也可以是网端(10.244.0.0/16)
+-d            :     指定数据的目标地址，格式同-s
+!             :     匹配条件前面加！取反
+-p            :     protocol协议类型，支持tcp, udp, udplite, icmp, icmpv6,esp, ah, sctp, mh
+-i            :     指定流入网卡,如-i eth1即对经网卡eth1的流入数据进行匹配处理。
+-o            :     指定流出网卡
+```
+>**拓展模块**
+上面说的是常规的匹配规则，还有一些拓展规则可以使用通过`-m 拓展模块 拓展模块可用的匹配规则`来调用
+```
+-m tcp -dport 22                                  ##拓展tcp模块,匹配目标端口为22的数据包。当指定了报文协议-p tcp时，可以省略-m tcp
+-m tcp -sport 33022                               ##拓展tcp模块,匹配来源端口为22的数据包.
+-m multiport -dport 21,22,3306                    ##mulitiport模块支持多个逗号隔开的多个端口(22,1521,3306)或者端口段 22:3306 ，sport也是的
+-m iprange --src-rang 192.168.0.1-192.168.99.122  ##iprange模块可以指定IP地址范围，--src-rang源地址，--dst-rang目标地址
+-m connlimit --connlimit-above 2                  ##并发连接数，匹配连接数高于2的数据包,可以设置丢弃，防止连接数过多
+-m limit --limit 10/minute -j accept              ##限制链接速率，没分钟放行10个包. 如果链默认规则是丢弃，超过10个包就会丢弃，如果是放行，因为未匹配执行默认规则，仍会放行
+-m string algo bm --string "head"                 ##按照bm算法匹配报文字符包含head的数据包
+-m time --timestart 09:00:00 --timestop 12:00:00  ##按发包时间匹配。还有--weekdays 4指定星期4 --monthdays 24指定24号，支持逗号列表
+```
 #### 删除规则
 ```
-iptables -t filter -F INPUT                             -F 链名：删除INPUT链下所有规则
+iptables -t filter -F INPUT                             -F 链名：删除INPUT链下所有规则s
 iptables -D INPUT 3                                     -D 链名 序号：删除指定链下特定序号的规则
 iptables -t filter -D INPUT -s 192.168.1.146 -j DROP    删除链下指定内容的规则
 ```
@@ -78,5 +104,4 @@ iptables -t filter -D INPUT -s 192.168.1.146 -j DROP    删除链下指定内容
 #### 读取规则
 可以在其他机器上指定`iptables-save > $file`导出到指定文件中，然后文件拷贝到本机执行导入`iptables-restore < $file`。
 批量设置规则时时可以自己写规则文件然后导入
-
 ```
