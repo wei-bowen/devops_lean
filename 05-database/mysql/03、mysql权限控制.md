@@ -16,4 +16,10 @@
 ### 创建用户
 - `create user 'user_name'@'host_name' identified by 'password'`  创建用户
 - `alter user 'user_name'@'host_name' identified by 'new_password';`修改用户密码
-- `delete from user where user='user_name'`删除用户
+- `delete from user where user='user_name'`或者`drop user 'user_name'@'host_name'`删除用户
+- `rename user 'user_name' to 'new_name'`更改用户名
+
+### 授予/回收权限
+grant 权限 on 库名.资源名称 to '用户'@'来源主机' with grant option;
+- grant all privilegse ondb_name.resource_name to 'user_name'@'host_name' -授予全部权限
+revoke select on zabbix.* from 'zabbix'@'%'; 回收除权限
