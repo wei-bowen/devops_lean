@@ -31,4 +31,10 @@ mysql> change master to master_host='192.168.0.66',master_user='repl',master_pas
 - `start slave`开始复制。
 - 备库上执行`show slave status\G`可以看到复制状态。Seconds_Behind_Master代表延迟时间
 - 主控执行`show processlist\G`可以看到复制线程信息
-
+- 从库配置只读`set global read_only=1;`
+**同步异常处理**
+- 根据从库发生异常的位置，查主库上的二进制日志。
+- 根据主库二进制日志信息，找到更新后的整条记录。
+- 在从库上执行在主库上找到的记录信息，进行insert操作。
+- 跳过这条语句，再同步slave。
+- pt-table-checksum可以校验主从库数据一致性。
