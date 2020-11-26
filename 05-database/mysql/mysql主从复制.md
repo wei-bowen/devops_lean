@@ -15,10 +15,20 @@ server-id		      = 66				    ### 唯一ID，自行制定，每个库都不一样
 ```
 然后重启mysql
 
-### 创建repl复制专用账户
+### 2、创建repl复制专用账户
 mysql中执行(主库和从库都执行)
 ```
 create user 'repl'@'192.168.0.%' IDENTIFIED BY 'rp1203';
 GRANT REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO 'repl'@'192.168.0.%';
 flush privileges;
 ```
+
+### 3、在备库开启复制
+指定主库的相关信息，binlog位置
+```
+mysql> change master to master_host='192.168.0.66',master_user='repl',master_password='rp1203',master_log_file='mysql-bin.000002',master_log_pos=156;
+```
+- `start slave`开始复制。
+- 备库上执行`show slave status\G`可以看到复制状态
+- 主控执行`show processlist\G`可以看到复制线程信息
+
