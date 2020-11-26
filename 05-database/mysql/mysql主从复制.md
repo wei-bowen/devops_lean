@@ -29,6 +29,6 @@ flush privileges;
 mysql> change master to master_host='192.168.0.66',master_user='repl',master_password='rp1203',master_log_file='mysql-bin.000002',master_log_pos=156;
 ```
 - `start slave`开始复制。
-- 备库上执行`show slave status\G`可以看到复制状态
+- 备库上执行`show slave status\G`可以看到复制状态。Seconds_Behind_Master代表延迟时间
 - 主控执行`show processlist\G`可以看到复制线程信息
 
