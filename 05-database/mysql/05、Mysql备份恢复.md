@@ -64,3 +64,8 @@
 
 - --routines, -R导出存储过程和自定义函数。
 <br>`mysqldump  -uroot -p --host=localhost --all-databases --routines`
+
+### 冷备innobackupex
+#### 安装
+```
+rpm -ivh http://www.percona.com/downloads/percona-release/redhat/0.1-3/percona-release-0.1-3.noarch.rpm
