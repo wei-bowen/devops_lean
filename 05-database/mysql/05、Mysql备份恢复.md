@@ -68,8 +68,8 @@
 ### 冷备innobackupex
 #### 安装
 ```
-rpm -ivh http://www.percona.com/downloads/percona-release/redhat/0.1-3/percona-release-0.1-3.noarch.rpm
-yum install percona-xtrabackup-24
+yum install https://repo.percona.com/yum/percona-release-latest.noarch.rpm -y
+yum install percona-xtrabackup-80 -y
 ```
 #### 整备
 ```
