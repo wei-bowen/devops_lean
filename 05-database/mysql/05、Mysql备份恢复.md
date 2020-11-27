@@ -69,10 +69,12 @@
 #### 安装
 ```
 rpm -ivh http://www.percona.com/downloads/percona-release/redhat/0.1-3/percona-release-0.1-3.noarch.rpm
-yum 
-
+yum install percona-xtrabackup-24
+```
 #### 整备
-`xtrabackup --defaults-file=/etc/my.cnf --user=root --password --backup=1 --target-dir=/data/backup/mysql/\`date +%F_%T\``
+```
+xtrabackup --defaults-file=/etc/my.cnf --user=root --password --backup=1 --target-dir=/data/backup/mysql/`date +%F_%T`
+```
 #### 整库恢复
 - `systemctl stop mysql`关闭数据库
 - 
