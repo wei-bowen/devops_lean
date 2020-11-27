@@ -22,8 +22,11 @@ create user 'repl'@'192.168.0.%' IDENTIFIED BY 'rp1203';
 GRANT REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO 'repl'@'192.168.0.%';
 flush privileges;
 ```
-
-### 3、在备库开启复制
+### 3、复制基线版本
+非必需。当主库已经运行了一段时间，存量数据已经比较大时，从库从头开始同步耗时会比较大，可以直接从主库导出数据灌到从库中，然后开始同步。
+使用mysqldump导出导入，或者其他备份方法，可参考[【Mysql备份恢复】](03、Mysql备份恢复.md)。<br>
+导出同时使用`show master status`查看主库当前binlog文件即位置，从库配置从该位置开始同步。
+### 4、在备库开启复制
 指定主库的相关信息，binlog位置
 ```
 mysql> change master to master_host='192.168.0.66',master_user='repl',master_password='rp1203',master_log_file='mysql-bin.000002',master_log_pos=156;
