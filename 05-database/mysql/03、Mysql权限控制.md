@@ -1,3 +1,4 @@
+## 03、Mysql权限控制
 ### tips
 如果忘记了root密码，可以在配置文件(默认是/etc/mt.cnf)中添加`skip-grant-tables`跳过权限验证直接root登陆来修改权限。
 ### 授权对象
