@@ -1,5 +1,5 @@
 ## 05、Mysql备份恢复
-#### 备份
+### 备份策略
 `SHOW VARIABLES LIKE 'datadir'`确认数据目录位置
 
 #### 定义恢复需求
@@ -22,3 +22,45 @@
 - 如果可以，关闭mysql做备份最简单且安全，可以获得完整一致性副本。锁表备份为次选，有一些一致性风险
 
 - 最好时先使用物理复制，以此数据启动MYSQL服务器实例并运行mysqlcheck。周期性地使用mysqldump执行逻辑备份
+
+### mysqldump热备
+#### 数据导入
+`cat 导出文件.sql | mysql -uroot -p`重定向即可导入
+
+#### 全部导出
+格式：`mysqldump [OPTIONS] --all-databases [OPTIONS]`<br>
+例如：`mysqldump -uroot -proot --all-databases >/tmp/all.sql`
+
+#### 整库导出
+格式：`mysqldump [OPTIONS] --databases [OPTIONS] DB1 [DB2 DB3...]`<br>
+例如：`mysqldump -uroot -proot --databases db1 db2 >/tmp/user.sql`
+
+#### 导出表
+导出表时将不会导出建库语句，导入时如果库不存在会报错
+格式：`mysqldump [OPTIONS] database [tables]`<br>
+例如：`mysqldump -uroot -proot --databases db1 --tables a1 a2  >/tmp/db1.sql`<br>
+
+#### 可用选项
+- --host指定数据库
+<br>`mysqldump  -uroot -p --host=localhost --all-databases`
+
+- --where="判断表达式"。按条件导出
+<br>`mysqldump -uroot -proot --databases db1 --tables a1 --where='id=1'  >/tmp/a1.sql`
+
+- --nodata只导出结构
+<br>`mysqldump -uroot -proot --no-data --databases db1 >/tmp/db1.sql`
+
+- -F导出后生成新的binlog
+<br>`mysqldump -uroot -proot --databases db1 -F >/tmp/db1.sql`
+
+- --lock-all-tables，缩略写成-l也可。导出时锁表。一般不用，下面有更好的选项。
+
+- --single-transaction提交一个BEGIN SQL语句，通过事务的隔离性保证导出的一致性状态。
+<br>`mysqldump -uroot -proot --single-transaction --databases db1 >/tmp/db1.sql`
+
+- --dump-slave将主库的binlog位置和文件名追加到导出数据的文件中。该选项会调用--lock-all-tables缩表。如果是在从库执行，将会停止SLAVE线程，然后记录此时同步到的binlog位置.将CHANGE MASTER命令输出到数据文件.导出完成后自动start slave
+
+- --master-data。将数据库本身的binlog位置输出到数据文件.而非同步的位置。
+
+- --routines, -R导出存储过程和自定义函数。
+<br>`mysqldump  -uroot -p --host=localhost --all-databases --routines`
