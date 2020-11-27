@@ -20,7 +20,7 @@ server-id		      = 66				    ### 唯一ID，自行制定，每个库都不一样
 mysql中执行(主库和从库都执行)
 ```
 create user 'repl'@'192.168.0.%' IDENTIFIED BY 'rp1203';
-GRANT REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO 'repl'@'192.168.0.%';
+GRANT RELOAD,LOCK TABLES,REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO 'repl'@'192.168.0.%';
 flush privileges;
 ```
 ### 3、复制基线版本
