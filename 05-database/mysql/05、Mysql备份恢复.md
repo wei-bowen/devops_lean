@@ -1,3 +1,4 @@
+## 05、Mysql备份恢复
 #### 备份
 `SHOW VARIABLES LIKE 'datadir'`确认数据目录位置
 
