@@ -77,4 +77,8 @@ xtrabackup --defaults-file=/etc/my.cnf --user=root --password --backup=1 --targe
 ```
 #### 整库恢复
 - `systemctl stop mysql`关闭数据库
-- 
+- `rm -rf /data/mysql/* && /var/log/mysql/*`清空数据目录和binlog存储目录
+- `xtrabackup --defaults-file=/etc/my.cnf --prepare --target-dir=备份文件目录`。追平日志(xtrbackup备份开始到结束的的这段时间,数据库可能执行了其他操作，需要将binlog中记录的操作追平到数据文件中)
+- `xtrabackup --defaults-file=/etc/my.cnf --copy-back --target-dir=备份文件目录`还原
+- `chown -R mysql:mysql /data/mysql && chown -R mysql:mysql /var/log/mysql`root用户还原的数据数组默认是root，需要修改为mysql
+- `systemctl start mysql`启动数据库即成功
